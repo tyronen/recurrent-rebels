@@ -15,7 +15,7 @@ import json
 # =============================================================================
 # Data parameters
 DATA_FILE = 'text8'
-MIN_FREQ = 20       # Minimum word frequency to be included in vocabulary
+MIN_FREQ = 10       # Minimum word frequency to be included in vocabulary
 VALIDATION_SPLIT = 0.05 # Percentage of data to use for validation
 
 # Model parameters
@@ -26,7 +26,7 @@ NEG_SAMPLES = 10     # Number of negative samples for each positive sample
 # Training parameters
 BATCH_SIZE = 512
 LEARNING_RATE = 0.01
-EPOCHS = 10
+EPOCHS = 5
 CHECKPOINT_FILE = 'word2vec_checkpoint.pt'
 BEST_MODEL_FILE = 'word2vec_best_model.pt'
 CHECKPOINT_STEP = 2000 # Save checkpoint every N steps
