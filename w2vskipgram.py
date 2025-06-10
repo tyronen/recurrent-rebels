@@ -13,17 +13,17 @@ import math
 # =============================================================================
 # Data parameters
 DATA_FILE = 'text8'
-MIN_FREQ = 50       # Minimum word frequency to be included in vocabulary
+MIN_FREQ = 20       # Minimum word frequency to be included in vocabulary
 
 # Model parameters
 EMBEDDING_DIM = 300 # Dimensionality of the word embeddings
-WINDOW_SIZE = 5     # Max context window size (words on each side of the center word)
-NEG_SAMPLES = 5     # Number of negative samples for each positive sample
+WINDOW_SIZE = 2     # Max context window size (words on each side of the center word)
+NEG_SAMPLES = 10     # Number of negative samples for each positive sample
 
 # Training parameters
-BATCH_SIZE = 1024
-LEARNING_RATE = 0.001
-EPOCHS = 5
+BATCH_SIZE = 512
+LEARNING_RATE = 0.01
+EPOCHS = 10
 
 # =============================================================================
 # Step 1: Data Preparation
