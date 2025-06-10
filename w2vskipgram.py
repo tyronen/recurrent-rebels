@@ -17,7 +17,7 @@ MIN_FREQ = 50       # Minimum word frequency to be included in vocabulary
 
 # Model parameters
 EMBEDDING_DIM = 300 # Dimensionality of the word embeddings
-WINDOW_SIZE = 5     # Context window size (words on each side of the center word)
+WINDOW_SIZE = 5     # Max context window size (words on each side of the center word)
 NEG_SAMPLES = 5     # Number of negative samples for each positive sample
 
 # Training parameters
@@ -64,51 +64,67 @@ print(f"Vocabulary size: {vocab_size}")
 
 class SkipGramDataset(Dataset):
     """
-    Custom PyTorch Dataset for generating skip-gram pairs.
+    Optimized, memory-efficient PyTorch Dataset for Word2Vec.
+    It generates skip-gram pairs on-the-fly instead of pre-generating them.
     """
     def __init__(self, text, window_size, vocab_size):
         self.text = text
         self.window_size = window_size
         self.vocab_size = vocab_size
-        self.data = self._generate_skipgram_pairs()
-        
-        # For negative sampling, we need a distribution of word frequencies
-        word_counts = Counter(text)
-        freqs = {i: count for i, count in enumerate(word_counts.values())}
-        # Unigram distribution raised to the 3/4 power
-        freqs_pow = np.array(list(freqs.values()))**0.75
-        self.word_dist = freqs_pow / np.sum(freqs_pow)
 
-    def _generate_skipgram_pairs(self):
-        """
-        Generates (center_word, context_word) pairs from the text.
-        """
-        print("Generating skip-gram pairs...")
-        pairs = []
-        for i, center_word in enumerate(tqdm(self.text)):
-            for w in range(-self.window_size, self.window_size + 1):
-                context_i = i + w
-                if w != 0 and 0 <= context_i < len(self.text):
-                    context_word = self.text[context_i]
-                    pairs.append((center_word, context_word))
-        print(f"Generated {len(pairs)} skip-gram pairs.")
-        return pairs
+        # For negative sampling, we need a distribution of word frequencies.
+        # This distribution is based on the unigram frequency raised to the 3/4 power.
+        word_counts = Counter(text)
+        # Create a frequency array where the index corresponds to the word's integer id.
+        freqs = np.zeros(vocab_size)
+        for word_idx, count in word_counts.items():
+            freqs[word_idx] = count
+        
+        freqs_pow = freqs**0.75
+        self.word_dist = freqs_pow / np.sum(freqs_pow)
+        self.word_dist_tensor = torch.from_numpy(self.word_dist).float()
+        
+        print("Memory-efficient SkipGramDataset created.")
 
     def __len__(self):
-        return len(self.data)
+        # The length of the dataset is the number of words in our corpus.
+        # Each word will be treated as a center word.
+        return len(self.text)
 
     def __getitem__(self, idx):
-        center_word, context_word = self.data[idx]
+        """
+        Returns one (center_word, context_word) pair and negative samples.
+        The context word is chosen randomly from the window of the center word.
+        """
+        center_word = self.text[idx]
         
-        # Generate negative samples
-        neg_samples = torch.multinomial(torch.from_numpy(self.word_dist),
+        # Use a dynamic window size (subsampling) for each call, as in the original Word2Vec paper.
+        # This gives more weight to closer words.
+        dynamic_window = random.randint(1, self.window_size)
+        
+        # Get all possible context word indices within the dynamic window
+        start_idx = max(0, idx - dynamic_window)
+        end_idx = min(len(self.text), idx + dynamic_window + 1)
+        possible_context_indices = [i for i in range(start_idx, end_idx) if i != idx]
+        
+        # Choose one context word randomly from the possible contexts
+        # Handle the rare edge case where a word has no context
+        if not possible_context_indices:
+            context_word_idx = idx # Fallback to the word itself
+        else:
+            context_word_idx = random.choice(possible_context_indices)
+        
+        context_word = self.text[context_word_idx]
+
+        # Generate negative samples using the pre-calculated distribution
+        neg_samples = torch.multinomial(self.word_dist_tensor,
                                         NEG_SAMPLES, replacement=True)
 
         return torch.tensor(center_word), torch.tensor(context_word), neg_samples
 
 # Create dataset and dataloader
 dataset = SkipGramDataset(int_words, WINDOW_SIZE, vocab_size)
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
 print("Data Preparation complete.")
 
 # =============================================================================
@@ -135,23 +151,18 @@ class SkipGramNegativeSampling(nn.Module):
         """
         Forward pass for the skip-gram model with negative sampling.
         """
-        # Get embeddings for the batch
-        # center_words: (batch_size)
-        # context_words: (batch_size)
-        # neg_samples: (batch_size, num_neg_samples)
-
         center_embeds = self.in_embed(center_words) # (batch_size, embed_dim)
         context_embeds = self.out_embed(context_words) # (batch_size, embed_dim)
         neg_embeds = self.out_embed(neg_samples) # (batch_size, num_neg_samples, embed_dim)
 
-        # Calculate dot product for positive pairs
         # Reshape for batch matrix multiplication
         center_embeds = center_embeds.unsqueeze(2) # (batch_size, embed_dim, 1)
+        
+        # Positive scores
         context_embeds = context_embeds.unsqueeze(1) # (batch_size, 1, embed_dim)
-
         pos_scores = torch.bmm(context_embeds, center_embeds).squeeze(2) # (batch_size, 1)
         
-        # Calculate dot product for negative pairs
+        # Negative scores
         neg_scores = torch.bmm(neg_embeds, center_embeds).squeeze(2) # (batch_size, num_neg_samples)
         
         return pos_scores, neg_scores
@@ -164,12 +175,9 @@ class NegativeSamplingLoss(nn.Module):
         """
         Calculates the negative sampling loss.
         """
-        # For positive pairs, we want the score to be high (close to 1)
         pos_loss = torch.log(torch.sigmoid(pos_scores))
-        # For negative pairs, we want the score to be low (close to 0)
         neg_loss = torch.log(torch.sigmoid(-neg_scores)).sum(1)
 
-        # We want to maximize the log-likelihood, so we minimize the negative log-likelihood
         return - (pos_loss + neg_loss).mean()
 
 # Instantiate the model and loss function
@@ -196,25 +204,16 @@ for epoch in range(EPOCHS):
     progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{EPOCHS}")
     for center_words, context_words, neg_samples in progress_bar:
         # Move data to the appropriate device
-        center_words = center_words.to(device)
-        context_words = context_words.to(device)
-        neg_samples = neg_samples.to(device)
+        center_words, context_words, neg_samples = center_words.to(device), context_words.to(device), neg_samples.to(device)
 
-        # Zero the gradients
         optimizer.zero_grad()
-        
-        # Forward pass
         pos_scores, neg_scores = model(center_words, context_words, neg_samples)
-        
-        # Calculate loss
         loss = criterion(pos_scores, neg_scores)
-        
-        # Backward pass and optimization
         loss.backward()
         optimizer.step()
         
         total_loss += loss.item()
-        progress_bar.set_postfix({'loss': loss.item()})
+        progress_bar.set_postfix({'loss': f'{loss.item():.4f}'})
         
     avg_loss = total_loss / len(dataloader)
     print(f"Epoch {epoch+1}/{EPOCHS}, Average Loss: {avg_loss:.4f}")
@@ -229,10 +228,8 @@ print("\nStarting Step 4: Saving Embeddings...")
 # We are interested in the input embeddings
 embeddings = model.in_embed.weight.cpu().data
 
-# Save the entire embedding matrix
 torch.save(embeddings, 'skipgram_embeddings.pt')
 
-# Also save the vocabulary mapping for later use
 import json
 with open('word2int.json', 'w') as f:
     json.dump(word2int, f)
@@ -241,24 +238,3 @@ with open('int2word.json', 'w') as f:
 
 print("Embeddings and vocabulary saved successfully.")
 print("File 'skipgram_embeddings.pt' created.")
-
-# =============================================================================
-# Example: How to load and use the embeddings
-# =============================================================================
-# embeddings_tensor = torch.load('skipgram_embeddings.pt')
-# with open('word2int.json', 'r') as f:
-#     word2int_loaded = json.load(f)
-
-# def get_embedding(word):
-#     try:
-#         idx = word2int_loaded[word]
-#         return embeddings_tensor[idx]
-#     except KeyError:
-#         return None
-
-# # Example usage
-# king_embedding = get_embedding('king')
-# if king_embedding is not None:
-#      print("\nEmbedding for 'king':")
-#      print(king_embedding)
-
