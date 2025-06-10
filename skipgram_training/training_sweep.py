@@ -54,7 +54,7 @@ def train():
 
     # --- Configuration & Hyperparameters from W&B ---
     DATA_FILE = 'text8'
-    MIN_FREQ = 50
+    MIN_FREQ = 10
     VALIDATION_SPLIT = 0.05
 
     EMBEDDING_DIM = config.embedding_dim
@@ -63,7 +63,7 @@ def train():
     
     BATCH_SIZE = config.batch_size
     LEARNING_RATE = config.learning_rate
-    EPOCHS = 5 # Set a max number of epochs per run
+    EPOCHS = 10 # Set a max number of epochs per run
     
     # Use run-specific filenames to avoid conflicts
     CHECKPOINT_FILE = f'word2vec_checkpoint_{wandb.run.id}.pt'
