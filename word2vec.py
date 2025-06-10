@@ -6,7 +6,7 @@ from collections import Counter
 import logging
 from typing import Tuple
 from torch.utils.data import Dataset, DataLoader
-import sys
+import argparse
 
 min_freq = 10
 context_size = 2
@@ -15,7 +15,14 @@ batch_size = 512
 epochs = 5
 learning_rate = 0.01
 patience = 10000
-outfile = sys.argv[1] if len(sys.argv) > 1 else "cbow_text8.pt"
+
+parser = argparse.ArgumentParser(description="Train CBOW word2vec model with negative sampling.")
+parser.add_argument('--corpus', required=True, help='Input text file for training')
+parser.add_argument('--model', required=True, help='Output file to save embeddings')
+args = parser.parse_args()
+
+input_file = args.corpus
+outfile = args.model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -90,8 +97,8 @@ def main():
     device = get_device()
     logging.info(f"Using device: {device}")
 
-    # === Load and tokenize text8 ===
-    with open("text8", "r", encoding="utf-8") as f:
+    # === Load ===
+    with open(input_file, "r", encoding="utf-8") as f:
         text = f.read().split()
 
     # === Build vocab ===

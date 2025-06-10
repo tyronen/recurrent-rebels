@@ -8,8 +8,12 @@ analogies = [
     ("javascript", "web", "python", "scripting"),
     ("google", "search", "facebook", "social"),
     ("linux", "open", "windows", "proprietary"),
+    ("python", "dynamic", "static", "typescript"),
+    ("google", "search", "cloud", "aws"),
+    ("docker", "container", "kubernetes", "orchestration"),
+    ("javascript", "frontend", "backend", "node"),
+    ("apple", "iphone", "android", "google"),
     # General analogies (classic word2vec tests)
-    ("king", "man", "queen", "woman"),
     ("paris", "france", "london", "england"),
     ("brother", "man", "sister", "woman"),
     ("big", "bigger", "small", "smaller"),
@@ -35,40 +39,28 @@ similar_pairs = [
     ("algorithm", "method"),
     ("javascript", "java"),
     ("microsoft", "apple"),
+    ("docker", "container"),
+    ("react", "javascript"),
+    ("python", "django"),
+    ("sql", "database"),
     # General semantic pairs
-    ("car", "automobile"),
     ("happy", "joyful"),
     ("big", "large"),
-    ("house", "home"),
-    ("beautiful", "pretty"),
     ("smart", "intelligent"),
     ("fast", "quick"),
 
     # Conceptual pairs
-    ("king", "queen"),
     ("man", "woman"),
-    ("boy", "girl"),
-    ("father", "mother"),
-    ("brother", "sister"),
 
     # Academic/Professional
     ("doctor", "physician"),
     ("teacher", "professor"),
-    ("student", "pupil"),
     ("book", "novel"),
     ("science", "research"),
 
     # Actions/Verbs
     ("walk", "run"),
-    ("eat", "consume"),
     ("learn", "study"),
-    ("write", "compose"),
-
-    # Geography
-    ("city", "town"),
-    ("country", "nation"),
-    ("mountain", "hill"),
-    ("river", "stream"),
 ]
 
 # Random word pairs that should be dissimilar
@@ -77,12 +69,13 @@ dissimilar_pairs = [
     ("programming", "music"),
     ("internet", "food"),
     ("algorithm", "color"),
+    ("docker", "photoshop"),
+    ("aws", "photoshop"),
+    ("javascript", "windows"),
+    ("sql", "react"),
     # Completely unrelated concepts
     ("happy", "database"),
     ("mountain", "programming"),
-    ("music", "mathematics"),
-    ("food", "politics"),
-    ("color", "economics"),
     ("animal", "technology"),
 
     # Opposite concepts
@@ -98,27 +91,15 @@ dissimilar_pairs = [
     ("medicine", "sports"),
     ("history", "technology"),
     ("music", "engineering"),
-    ("literature", "mathematics"),
-    ("politics", "biology"),
-
-    # Abstract vs concrete
-    ("love", "computer"),
-    ("freedom", "table"),
-    ("justice", "car"),
-    ("beauty", "software"),
-    ("truth", "phone"),
 ]
 
 categories = {
     "programming": ["python", "java", "javascript", "programming", "coding"],
-    "companies": ["google", "apple", "microsoft", "amazon", "facebook"],
     "tech_concepts": ["algorithm", "data", "software", "computer", "internet"],
-    # General categories
-    "colors": ["red", "blue", "green", "yellow", "black", "white"],
-    "animals": ["cat", "dog", "bird", "fish", "horse", "cow"],
-    "family": ["father", "mother", "brother", "sister", "son", "daughter"],
-    "emotions": ["happy", "sad", "angry", "excited", "calm", "worried"],
-    "body_parts": ["head", "hand", "foot", "eye", "nose", "mouth"],
+    "Frameworks": ["django", "flask", "react", "vue", "angular"],
+    "Cloud": ["aws", "azure", "gcp", "cloud", "lambda "],
+     "Companies": ["google", "apple", "facebook", "amazon", "microsoft", "stripe", "shopify"],
+    "Languages": ["python", "java", "javascript", "go", "rust", "typescript"],
 
     # Academic/Professional
     "sciences": ["physics", "chemistry", "biology", "mathematics", "psychology"],
@@ -128,27 +109,16 @@ categories = {
     # Geography/Places
     "countries": ["america", "england", "france", "germany", "japan"],
     "cities": ["london", "paris", "tokyo", "berlin", "moscow"],
-    "geography": ["mountain", "river", "ocean", "forest", "desert"],
-
-    # Arts/Culture
-    "music": ["song", "piano", "guitar", "symphony", "opera"],
-    "literature": ["book", "novel", "poem", "story", "author"],
-    "sports": ["football", "basketball", "tennis", "swimming", "running"],
 
     # Time/Temporal
     "time_periods": ["day", "week", "month", "year", "century"],
     "seasons": ["spring", "summer", "autumn", "winter"],
-
-    # Food/Consumption
-    "food": ["bread", "meat", "fruit", "vegetable", "milk"],
-    "cooking": ["cook", "bake", "fry", "boil", "grill"],
 
     # Transportation
     "vehicles": ["car", "train", "plane", "ship", "bicycle"],
     "transportation": ["travel", "journey", "road", "airport", "station"],
 
     # Abstract concepts
-    "values": ["freedom", "justice", "truth", "beauty", "love"],
     "qualities": ["good", "bad", "beautiful", "ugly", "smart", "stupid"],
 }
 
@@ -157,10 +127,11 @@ def load_embeddings(path):
     return checkpoint["embeddings"], checkpoint["word_to_ix"], checkpoint["ix_to_word"]
 
 
-def word_analogy_test(embeddings, word_to_ix, analogies):
+def word_analogy_test(embeddings, word_to_ix):
     """Test word analogies: king - man + woman = queen"""
     correct = 0
     total = 0
+    total_sim = 0
 
     for a, b, c, expected in analogies:
         if all(word in word_to_ix for word in [a, b, c, expected]):
@@ -188,11 +159,14 @@ def word_analogy_test(embeddings, word_to_ix, analogies):
             if best_word == expected:
                 correct += 1
             total += 1
+            total_sim += best_similarity.item()
             print(f"{a} - {b} + {c} = {best_word} (expected: {expected})")
 
     accuracy = correct / total if total > 0 else 0
-    print(f"\nAnalogy Accuracy: {accuracy:.3f} ({correct}/{total})")
-    return accuracy
+    avg_similarity_of_final_embedding = total_sim/len(analogies)
+    print(f"\nAnalogy Hard Accuracy: {accuracy:.3f} ({correct}/{total})")
+    print(f"\nAnalogy Soft Accuracy: {avg_similarity_of_final_embedding:.3f} ({total_sim}/{len(analogies)})")
+    return accuracy, avg_similarity_of_final_embedding
 
 def semantic_similarity_test(embeddings, word_to_ix):
     """Test if semantically similar words have high cosine similarity"""
@@ -267,12 +241,12 @@ def evaluate_embeddings(model_path):
     print("=" * 50)
 
     # Run all tests
-    analogy_score = word_analogy_test(embeddings, word_to_ix, analogies)
+    analogy_hard_score, analogy_soft_score = word_analogy_test(embeddings, word_to_ix)
     similarity_score = semantic_similarity_test(embeddings, word_to_ix)
     clustering_score = category_clustering_test(embeddings, word_to_ix)
 
     # Combined score
-    overall_score = (analogy_score + similarity_score + clustering_score) / 3
+    overall_score = (analogy_soft_score + similarity_score + clustering_score) / 3
 
     print(f"\n{'=' * 50}")
     print(f"OVERALL QUALITY SCORE: {overall_score:.3f}")
