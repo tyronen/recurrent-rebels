@@ -11,7 +11,10 @@ min_freq = 10
 context_size = 5
 embed_dim = 128
 batch_size = 512
-epochs = 2
+epochs = 3
+learning_rate = 0.0005
+patience = 5000
+outfile = "cbow_text8.pt"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -112,9 +115,10 @@ def main():
     logging.info(f"Dataset size: {len(dataset)}")
 
     model = CBOWNegativeSampling(vocab_size).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    best_loss = float('inf')
+    no_improve_count = 0
     for epoch in range(epochs):
-        total_loss = 0
         for i, (context_batch, target_batch) in enumerate(data_loader):
             context_batch = context_batch.to(device, non_blocking=True)
             target_batch = target_batch.to(device, non_blocking=True)
@@ -123,21 +127,24 @@ def main():
             loss = model(context_batch, target_batch, neg_samples)
             loss.backward()
             optimizer.step()
-            total_loss += loss.item()
+            if loss.item() < best_loss:
+                best_loss = loss.item()
+                no_improve_count = 0
+                torch.save(
+                    {
+                        "embeddings": model.in_embed.weight.data.cpu(),
+                        "word_to_ix": word_to_ix,
+                        "ix_to_word": ix_to_word,
+                    },
+                    outfile,
+                )
+            else:
+                no_improve_count += 1
+            if no_improve_count > patience:
+                logging.info(f"Early stopping at epoch {epoch + 1}, step {i}")
+                break
             if i % 1000 == 999:
                 logging.info(f"Epoch {epoch+1}, Step {i+1}, Loss: {loss.item():.4f}")
-
-    # === Save embeddings ===
-    outfile = "cbow_text8.pt"
-    torch.save(
-        {
-            "embeddings": model.in_embed.weight.data.cpu(),
-            "word_to_ix": word_to_ix,
-            "ix_to_word": ix_to_word,
-        },
-        outfile,
-    )
-
     logging.info(f"✅ Embeddings saved to {outfile}")
 
 if __name__ == "__main__":

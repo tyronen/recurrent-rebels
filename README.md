@@ -17,13 +17,7 @@ c. data quality issues
 
 ## 2. Build prediction models
 
-a. tokenisation
-
-- Tyrone
-
-b. pre-train word2vec
-
-- Tyrone
+To run the word2vec code, run python word2vec.py from the command line. Or use the notebook word2vec.ipynb, which wraps it, on Google Colab. This produces cbow_text8.pt embeddings.
 
 c. finetune embeddings
 
