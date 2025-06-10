@@ -22,7 +22,9 @@ def find_similar(word, top_k=5):
     return [ix_to_word[i.item()] for i in top_indices]
 
 def main(word):
-    print(f"{word}: " + ", ".join(find_similar(word)))
+    results = find_similar(word)
+    suffix = ", ".join(results) if isinstance(results, list) else results
+    print(f"{word}: {suffix}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

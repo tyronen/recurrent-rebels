@@ -25,6 +25,8 @@ Once the model is built, you can test it with `python tester.py <word>`. Or even
 for x in king man test learning anarchist computer internet microsoft google hacker nonsense; do python tester.py $x; done
 ```
 
+One such list can be found simply by running `python word2vec_test.py`
+
 c. finetune embeddings
 
 d. regression task
