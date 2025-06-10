@@ -17,13 +17,17 @@ c. data quality issues
 
 ## 2. Build prediction models
 
-a. pre-train word2vec
+a. tokenisation
 
 - Tyrone
 
-b. finetune embeddings
+b. pre-train word2vec
 
-c. regression task
+- Tyrone
+
+c. finetune embeddings
+
+d. regression task
 
 ## 3. Deploy a predictor service
 
