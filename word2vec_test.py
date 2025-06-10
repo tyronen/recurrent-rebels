@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 test_categories = {
     "Programming Languages": ["python", "javascript", "rust", "go", "java"],
@@ -18,6 +19,6 @@ for category, words in test_categories.items():
 
     for word in words:
         try:
-            subprocess.run(['python', 'tester.py', word], check=True)
+            subprocess.run([sys.executable, 'tester.py', word], check=True)
         except subprocess.CalledProcessError:
             print(f"'{word}' not found in vocabulary")
