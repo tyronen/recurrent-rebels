@@ -1,7 +1,12 @@
 import torch
 import sys
 
-checkpoint = torch.load("cbow_text8.pt")
+if len(sys.argv) < 2:
+    print(f"Usage: python {sys.argv[0]} <word> <model-file>")
+    sys.exit(1)
+
+filename = sys.argv[2] if len(sys.argv) > 2 else "cbow_text8.pt"
+checkpoint = torch.load(filename)
 embeddings = checkpoint["embeddings"]
 word_to_ix = checkpoint["word_to_ix"]
 ix_to_word = checkpoint["ix_to_word"]
@@ -26,8 +31,4 @@ def main(word):
     suffix = ", ".join(results) if isinstance(results, list) else results
     print(f"{word}: {suffix}")
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(f"Usage: python {sys.argv[0]} <word>")
-        sys.exit(1)
-    main(sys.argv[1])
+main(sys.argv[1])

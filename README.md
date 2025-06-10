@@ -17,15 +17,11 @@ c. data quality issues
 
 ## 2. Build prediction models
 
-To run the word2vec code, run python word2vec.py from the command line. Or use the notebook word2vec.ipynb, which wraps it, on Google Colab. This produces cbow_text8.pt embeddings.
+To run the word2vec code, run python word2vec.py from the command line. Or use the notebook word2vec.ipynb, which wraps it, on Google Colab. This produces embeddings in the filename specified as the argument. Defaults to `cbow_test8.pt`.
 
-Once the model is built, you can test it with `python tester.py <word>`. Or even a bunch of words:
+Once the model is built, you can test it with `python tester.py <word> <model-file>`. Or even a bunch of words: `python word2vec_test.py <model-file>`
 
-```bash
-for x in king man test learning anarchist computer internet microsoft google hacker nonsense; do python tester.py $x; done
-```
-
-One such list can be found simply by running `python word2vec_test.py`
+We can evaluate models side by side with `python word2vec_eval.py model1 model2`
 
 c. finetune embeddings
 
