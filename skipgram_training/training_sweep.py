@@ -27,7 +27,7 @@ sweep_config = {
             'values': [100, 200, 500]
         },
         'learning_rate': {
-            'distribution': 'log_uniform',
+        'distribution': 'log_uniform_values',
             'min': 1e-4,
             'max': 1e-2
         },
@@ -135,7 +135,10 @@ def train():
     class NegativeSamplingLoss(nn.Module):
         def __init__(self): super().__init__()
         def forward(self, pos_scores, neg_scores):
-            return - (torch.log(torch.sigmoid(pos_scores)) + torch.log(torch.sigmoid(-neg_scores)).sum(1)).mean()
+            # FIX: Use the numerically stable `logsigmoid` function to prevent NaN loss.
+            pos_loss = torch.nn.functional.logsigmoid(pos_scores)
+            neg_loss = torch.nn.functional.logsigmoid(-neg_scores).sum(1)
+            return - (pos_loss + neg_loss).mean()
 
     model = SkipGramNegativeSampling(vocab_size, EMBEDDING_DIM)
     criterion = NegativeSamplingLoss()
