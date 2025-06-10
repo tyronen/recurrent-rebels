@@ -8,12 +8,12 @@ from typing import Tuple
 from torch.utils.data import Dataset, DataLoader
 
 min_freq = 10
-context_size = 5
-embed_dim = 128
+context_size = 2
+embed_dim = 200
 batch_size = 512
-epochs = 3
-learning_rate = 0.0005
-patience = 5000
+epochs = 5
+learning_rate = 0.01
+patience = 7500
 outfile = "cbow_text8.pt"
 
 logging.basicConfig(
