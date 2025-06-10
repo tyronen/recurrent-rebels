@@ -15,15 +15,17 @@ c. data quality issues
 
 - Anton, notebook connecting to SQL
 
+### Downloading data from the HackerNews DB
+
+`download.py` will download selected comments and titles from the database (136 MB total). `tokenizer.py` will tokenize it into `hn_corpus.txt`.
+
 ## 2. Build prediction models
 
-a. tokenisation
+To run the word2vec code, run python word2vec.py from the command line. Or use the notebook word2vec.ipynb, which wraps it, on Google Colab. This produces embeddings in the filename specified as the argument. Specify `--corpus` for the corpus and `--model` for the output file.
 
-- Tyrone
+Once the model is built, you can test it with `python tester.py <word> <model-file>`. Or even a bunch of words: `python word2vec_test.py <model-file>`
 
-b. pre-train word2vec
-
-- Tyrone
+We can evaluate models side by side with `python word2vec_eval.py model1 model2`
 
 c. finetune embeddings
 
