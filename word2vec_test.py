@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 test_categories = {
     "Programming Languages": ["python", "javascript", "rust", "go", "java"],
@@ -11,6 +12,8 @@ test_categories = {
     "Common Words": ["king", "man", "city", "water", "car"]
 }
 
+filename = sys.argv[1] if len(sys.argv) > 1 else "cbow_text8.pt"
+
 for category, words in test_categories.items():
     print(f"\n{'=' * 50}")
     print(f"Category: {category}")
@@ -18,6 +21,6 @@ for category, words in test_categories.items():
 
     for word in words:
         try:
-            subprocess.run(['python', 'tester.py', word], check=True)
+            subprocess.run(['python', 'tester.py', word, filename], check=True)
         except subprocess.CalledProcessError:
             print(f"'{word}' not found in vocabulary")

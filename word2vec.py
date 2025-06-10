@@ -6,6 +6,7 @@ from collections import Counter
 import logging
 from typing import Tuple
 from torch.utils.data import Dataset, DataLoader
+import sys
 
 min_freq = 10
 context_size = 2
@@ -14,7 +15,7 @@ batch_size = 512
 epochs = 5
 learning_rate = 0.01
 patience = 10000
-outfile = "cbow_text8.pt"
+outfile = sys.argv[1] if len(sys.argv) > 1 else "cbow_text8.pt"
 
 logging.basicConfig(
     level=logging.INFO,
