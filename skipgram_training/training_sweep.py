@@ -190,7 +190,14 @@ def train():
                     best_validation_loss = avg_val_loss
                     patience_counter = 0
                     wandb.run.summary["best_validation_loss"] = best_validation_loss
-                    torch.save({'model_state_dict': model.state_dict()}, BEST_MODEL_FILE)
+                    
+                    # Save in format compatible with tester.py
+                    tester_format = {
+                        'embeddings': model.in_embed.weight.cpu().data,
+                        'word_to_ix': word2int,
+                        'ix_to_word': int2word
+                    }
+                    torch.save(tester_format, BEST_MODEL_FILE)
                 else:
                     patience_counter += 1
                 
