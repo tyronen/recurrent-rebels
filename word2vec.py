@@ -9,11 +9,11 @@ from torch.utils.data import Dataset, DataLoader
 
 min_freq = 10
 context_size = 2
-embed_dim = 200
+embed_dim = 300
 batch_size = 512
 epochs = 5
 learning_rate = 0.01
-patience = 7500
+patience = 10000
 outfile = "cbow_text8.pt"
 
 logging.basicConfig(

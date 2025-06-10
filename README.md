@@ -19,6 +19,12 @@ c. data quality issues
 
 To run the word2vec code, run python word2vec.py from the command line. Or use the notebook word2vec.ipynb, which wraps it, on Google Colab. This produces cbow_text8.pt embeddings.
 
+Once the model is built, you can test it with `python tester.py <word>`. Or even a bunch of words:
+
+```bash
+for x in king man test learning anarchist computer internet microsoft google hacker nonsense; do python tester.py $x; done
+```
+
 c. finetune embeddings
 
 d. regression task

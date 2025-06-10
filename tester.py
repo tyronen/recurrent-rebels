@@ -19,10 +19,10 @@ def find_similar(word, top_k=5):
     similarities = torch.cosine_similarity(word_vec.unsqueeze(0), embeddings)
     top_indices = similarities.topk(top_k + 1)[1][1:]  # Skip the word itself
 
-    return [(ix_to_word[i.item()], similarities[i].item()) for i in top_indices]
+    return [ix_to_word[i.item()] for i in top_indices]
 
 def main(word):
-    print(f"Similar to '{word}':", find_similar(word))
+    print(f"{word}: " + ", ".join(find_similar(word)))
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
