@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
+import re
 
 
 def extract_features(data):
@@ -60,7 +61,7 @@ class PostDataset(Dataset):
         Converts raw title text into list of token indices using w2i_dict.
         Unknown words get index 0 (like your CBOW model does).
         """
-        tokens = title_text.lower().split()  # simple whitespace tokenizer
+        tokens = re.findall(r'[a-zA-Z]+', title_text.lower())  # split along any non-alphabetic characters
         token_indices = [self.w2i_dict.get(token, 0) for token in tokens]
         return token_indices
     
