@@ -3,10 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-import pandas as pd
-import numpy as np
-
-from dataloader import PostDataset  
+from external_data import load_data, load_embeddings
+from dataloader import PostDataset
 from model import BigModel
 
 import argparse
@@ -17,6 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 parser = argparse.ArgumentParser(description="Train the master NN.")
 parser.add_argument('--items', default="data/items.parquet", help='Items data frame')
+parser.add_argument('--users', default="data/users.parquet", help='Users data frame')
 parser.add_argument('--embeddings', default="skipgram_models/silvery200.pt", help='Word2Vec embeddings')
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
 parser.add_argument("--epochs", type=int, default=10, help="Epochs")
@@ -40,23 +39,6 @@ def get_device():
 
 DEVICE = get_device()
 
-
-def load_data():
-    rawdf = pd.read_parquet(args.items)
-    has_score = rawdf.dropna(subset=["score"])
-    has_title = has_score[has_score["title"].notnull()]
-    has_title = has_title[has_title["title"].str.strip().astype(bool)]  # drop empty or whitespace-only
-    numeric = has_title.select_dtypes(include=[np.number])
-    return pd.concat([has_title[["title"]], numeric.drop(columns=["id"])], axis=1)
-
-def load_embeddings():
-    efile = torch.load(args.embeddings)
-    embeddings = efile["embeddings"]
-    word_to_ix = efile["word_to_ix"]
-    word_to_ix['UNK'] = 0
-    return word_to_ix, embeddings
-
-
 if __name__ == '__main__':
     # Timestamp for this run
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -72,8 +54,8 @@ if __name__ == '__main__':
     global_step = 0
 
     # Prepare data
-    df = load_data()
-    w2i, embedding_matrix = load_embeddings()
+    df = load_data(args.items, args.users)
+    w2i, embedding_matrix = load_embeddings(args.embeddings)
 
     dataset = PostDataset(df, embedding_matrix, w2i)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
