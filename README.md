@@ -8,18 +8,73 @@ a. look for cues
 
 - Rasched/Nick, exploring for features in SQL/Pandas
 
-- user features:
-- karma
-- no of submitted posts
-- max/min/mean upvotes per post 
-- post per year 
-- total posts 
-- descendentans 
-- deepest sub comment level? 
-- no of comments / sub comments, mean , total
-- time they have been a user 
-- avg number of people engaging on their post (same as avg number of comments?)
+# 🔎 Feature Brainstorming for Hacker News Upvote Prediction
 
+## ✅ User Features
+
+- Karma  
+- Number of submitted posts (total posts)  
+- Max upvotes per post  
+- Min upvotes per post  
+- Mean upvotes per post  
+- Posts per year  
+- Total posts  
+- Descendants (total number of comments under the post)  
+- Deepest sub comment level  
+- Number of comments / sub comments  
+- Mean number of comments per post  
+- Total number of comments  
+- Account age (time they have been a user)  
+- Average number of people engaging on their post (same as average comments per post?)
+
+## 🕒 Temporal Features
+
+- Post time of day (hour bucket: morning, afternoon, evening, night)
+- Post weekday/weekend indicator
+- Account age at post time (how old the account was when posting)
+- Post within first N minutes of daily HN activity cycle
+- Days since previous post
+
+## 🔄 User Interaction Diversity
+
+- Number of distinct people commenting on user’s posts
+- Number of unique threads user participated in (non-own posts)
+- Fraction of posts that got at least 1 upvote (success rate)
+
+## 📝 Post Content Features
+
+- Title length (word count, character count)
+- Average word length in title
+- Presence of question mark (`?`)
+- Presence of exclamation mark (`!`)
+- Sentiment score of title
+- Embedding of title (TF-IDF, Word2Vec, BERT etc.)
+- Title language (non-English titles tend to perform worse): can do this as binary
+
+## 🔗 URL Features
+
+- Domain popularity (e.g., github.com, nytimes.com, etc.)
+- External domain reputation (popular domains may have higher base upvotes)
+- Is submission linking to user's own site (self-promotion)
+
+## 👥 Community-specific Features
+
+- Submission category/topic (AI, Crypto, Programming, Startups, etc.)
+- Average performance of user's previous posts in same category
+- Number of reposts of the same URL
+
+## ⚡ Meta Engagement Features
+
+- Average time to first comment
+- Time to 10 comments (velocity indicator)
+- Fraction of posts receiving moderator flag
+- Upvote velocity (upvotes per minute/hour after posting)
+- Time taken to hit score thresholds (10, 50, 100 upvotes)
+
+## 💡 Additional Advanced Features
+
+- Network centrality (user’s interaction graph on HN)
+- User influence score (e.g., followers or mentions elsewhere)
 
 - How to embed users? use something like Node2Vec or other graph embeddings
 
