@@ -2,6 +2,10 @@
 
 MLX Institute, Recurrent Rebels group
 
+## How to run this project
+
+Install requirements: Run `pip install -r requirements.txt`
+
 ## 1. Exploratory Data Analysis (EDA)
 
 a. look for cues
