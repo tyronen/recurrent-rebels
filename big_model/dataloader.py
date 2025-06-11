@@ -5,6 +5,28 @@ import numpy as np
 import re
 
 
+def time_features(value):
+    # Convert timestamp to multiple features
+    timestamp = pd.to_datetime(value)
+
+    # Year as regular feature
+    time_features  = [timestamp.year]
+
+    # Hour as circular features (0-23)
+    hour_angle = 2 * np.pi * timestamp.hour / 24
+    dow_angle = 2 * np.pi * timestamp.dayofweek / 7
+    day_angle = 2 * np.pi * timestamp.dayofyear / 365
+    time_features.extend([
+        np.sin(hour_angle),
+        np.cos(hour_angle),
+        np.sin(dow_angle),
+        np.cos(dow_angle),
+        np.sin(day_angle),
+        np.cos(day_angle)
+    ])
+    return time_features
+
+
 def extract_features(data):
     # process features as necessary, anything that is not text 
     
@@ -13,25 +35,7 @@ def extract_features(data):
     
     for col_name, value in data.items():
         if col_name == 'time':
-            # Convert timestamp to multiple features
-            timestamp = pd.to_datetime(value)
-            
-            # Year as regular feature
-            feature_values.append(timestamp.year)
-            
-            # Hour as circular features (0-23)
-            hour_angle = 2 * np.pi * timestamp.hour / 24
-            dow_angle = 2 * np.pi * timestamp.dayofweek / 7
-            day_angle = 2 * np.pi * timestamp.dayofyear / 365
-            feature_values.extend([
-                np.sin(hour_angle),
-                np.cos(hour_angle),
-                np.sin(dow_angle),
-                np.cos(dow_angle),
-                np.sin(day_angle),
-                np.cos(day_angle)
-            ])
-
+            feature_values.extend(time_features(value))
         else:
             feature_values.append(value)
     
@@ -50,7 +54,6 @@ class PostDataset(Dataset):
         self.w2i_dict = w2i_dict
         
         # Select feature columns
-        print(dataframe.dtypes)
         self.feature_cols = [col for col in dataframe.columns if col not in ['title', 'score']]
 
     def __len__(self):
