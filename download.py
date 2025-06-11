@@ -1,14 +1,13 @@
-import os
 import logging
-import csv
+import pandas as pd
 from sqlalchemy import create_engine, text
 
 # Run pip install sqlalchemy psycopg2-binary before running this
 
 db_url = "postgresql://sy91dhb:g5t49ao@178.156.142.230:5432/hd64m1ki"
-titles_file = "data/titles.txt"
-comments_file = "data/comments.txt"
-items_file = "data/items.txt"
+titles_file = "data/titles.parquet"
+comments_file = "data/comments.parquet"
+items_file = "data/items.parquet"
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
@@ -16,29 +15,16 @@ logging.basicConfig(
 
 
 def download_query(engine, query, outfile):
-    name = os.path.splitext(os.path.basename(outfile))[0]
-    logging.info(f"Downloading {name}...")
-    count = 0
-
-    with engine.connect().execution_options(stream_results=True) as conn:
-        result = conn.execution_options(yield_per=100000).execute(text(query))
-        with open(outfile, "w", encoding="utf-8", newline="") as f:
-            writer = None
-            for row in result:
-                if not any(row):
-                    continue
-                if len(row) == 1:
-                    f.write(str(row[0]) + "\n")
-                else:
-                    if writer is None:
-                        writer = csv.writer(f)
-                        writer.writerow(result.keys())
-                    writer.writerow(row)
-                count += 1
-                if count % 200000 == 0:
-                    logging.info(f"Downloaded {count} {name}...")
-
-    logging.info(f"✅ Downloaded {count} {name} to {outfile}")
+    total_rows = 0
+    chunks = pd.read_sql_query(query, engine, chunksize=200000)
+    all_chunks = []
+    for chunk in chunks:
+        all_chunks.append(chunk)
+        total_rows += len(chunk)
+        logging.info(f"⏳ Downloaded {total_rows} rows so far for {outfile}")
+    df = pd.concat(all_chunks, ignore_index=True)
+    df.to_parquet(outfile)
+    logging.info(f"✅ Saved {outfile} ({len(df)} rows)")
 
 
 def download_hn_data():
