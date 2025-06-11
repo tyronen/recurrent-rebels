@@ -1,10 +1,40 @@
 import torch
 from torch.utils.data import Dataset
+import pandas as pd
+import numpy as np
 
 
-def extract_features(arr):
+def extract_features(data):
     # process features as necessary, anything that is not text 
-    return arr 
+    
+    #extract time features
+    feature_values = []
+    
+    for col_name, value in data.items():
+        if col_name == 'time':
+            # Convert timestamp to multiple features
+            timestamp = pd.to_datetime(value)
+            
+            # Year as regular feature
+            feature_values.append(timestamp.year)
+            
+            # Hour as circular features (0-23)
+            hour_angle = 2 * np.pi * timestamp.hour / 24
+            dow_angle = 2 * np.pi * timestamp.dayofweek / 7
+            day_angle = 2 * np.pi * timestamp.dayofyear / 365
+            feature_values.extend([
+                np.sin(hour_angle),
+                np.cos(hour_angle),
+                np.sin(dow_angle),
+                np.cos(dow_angle),
+                np.sin(day_angle),
+                np.cos(day_angle)
+            ])
+
+        else:
+            feature_values.append(value)
+    
+    return torch.tensor(feature_values, dtype=torch.float32)
 
 
 class PostDataset(Dataset):
@@ -48,8 +78,8 @@ class PostDataset(Dataset):
 
         # Features
         if self.feature_cols:
-            data = torch.tensor(row[self.feature_cols].values, dtype=torch.float32)
-            features = extract_features(data)
+            data = row[self.feature_cols]
+            features = extract_features(data) #return tensor
         else:
             features = torch.tensor([], dtype=torch.float32)
 
