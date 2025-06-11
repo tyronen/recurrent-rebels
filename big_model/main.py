@@ -18,7 +18,18 @@ from torch.utils.tensorboard import SummaryWriter
 BATCH_SIZE = 32
 EPOCHS = 10
 LEARNING_RATE = 1e-3
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
+
+
+DEVICE = get_device()
 
 
 def create_dummy_data():
