@@ -7,6 +7,22 @@ MLX Institute, Recurrent Rebels group
 a. look for cues
 
 - Rasched/Nick, exploring for features in SQL/Pandas
+
+user features:
+karma
+no of submitted posts
+max/min/mean upvotes per post 
+post per year 
+total posts 
+descendentans 
+deepest sub comment level? 
+no of comments / sub comments 
+how many authored 
+how many comments 
+time they have been a user 
+avg number of people engaging on their post (same as avg number of comments)
+
+
 - How to embed users? use something like Node2Vec or other graph embeddings
 
 b. understand the distributions
