@@ -40,7 +40,6 @@ a. look for cues
 - Number of distinct people commenting on user’s posts
 - Number of unique threads user participated in (non-own posts)
 - Fraction of posts that got at least 1 upvote (success rate)
-- Fraction of posts that reached front page
 
 ## 📝 Post Content Features
 
@@ -48,14 +47,12 @@ a. look for cues
 - Average word length in title
 - Presence of question mark (`?`)
 - Presence of exclamation mark (`!`)
-- Clickbait indicator words (`how`, `why`, `what`, `this`, `best`, `top`)
 - Sentiment score of title
 - Embedding of title (TF-IDF, Word2Vec, BERT etc.)
-- Title language (non-English titles tend to perform worse)
+- Title language (non-English titles tend to perform worse): can do this as binary
 
 ## 🔗 URL Features
 
-- Is self-post vs link-post
 - Domain popularity (e.g., github.com, nytimes.com, etc.)
 - External domain reputation (popular domains may have higher base upvotes)
 - Is submission linking to user's own site (self-promotion)
@@ -63,7 +60,6 @@ a. look for cues
 ## 👥 Community-specific Features
 
 - Submission category/topic (AI, Crypto, Programming, Startups, etc.)
-- Number of previous front page appearances by user
 - Average performance of user's previous posts in same category
 - Number of reposts of the same URL
 
