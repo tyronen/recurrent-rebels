@@ -91,6 +91,7 @@ class PostDataset(Dataset):
         x = torch.cat([features, title_embedding], dim=0)
 
         # Target score
-        y = torch.log(torch.tensor(row['score'] + 1, dtype=torch.float32))
+        score = torch.clamp(torch.tensor(row['score'], dtype=torch.float32), min=0)
+        y = torch.log(score + 1)
 
         return x, y
