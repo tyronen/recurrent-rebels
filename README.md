@@ -17,7 +17,14 @@ c. data quality issues
 
 ### Downloading data from the HackerNews DB
 
-`download.py` will download selected comments and titles from the database (136 MB total). `tokenizer.py` will tokenize it into `hn_corpus.txt`.
+`download.py` will download selected comments and titles from the database (136 MB total) as well as the complete set of posts (800 MB). 
+
+`tokenizer.py` will tokenize comments and titles into `hn_corpus.txt`.
+
+### Directories
+
+- `data` holds raw data files, including downloads from SQL
+- `embeddings` and `skipgram_models` hold models built with word2vec
 
 ## 2. Build prediction models
 

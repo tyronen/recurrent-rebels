@@ -4,9 +4,10 @@ import os
 import sys
 import html
 
-titles_file = "titles.txt"
-comments_file = "comments.txt"
-output_file = "hn_corpus.txt"
+titles_file = "data/titles.txt"
+comments_file = "data/comments.txt"
+output_file = "data/hn_corpus.txt"
+
 
 def clean_text(text):
     """Clean and tokenize text similar to text8 format"""
@@ -17,20 +18,20 @@ def clean_text(text):
     text = text.lower()
 
     # Remove URLs
-    text = re.sub(r'http[s]?://\S+', ' ', text)
+    text = re.sub(r"http[s]?://\S+", " ", text)
 
     # Remove HTML tags
-    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r"<[^>]+>", " ", text)
 
     # Remove apostrophe suffixes
-    text = re.sub(r"n't\b", ' not', text)  # "don't" -> "do not"
-    text = re.sub(r"'[a-z]*\b", '', text)
+    text = re.sub(r"n't\b", " not", text)  # "don't" -> "do not"
+    text = re.sub(r"'[a-z]*\b", "", text)
 
     # Keep only letters, numbers, and basic punctuation
-    text = re.sub(r'[^a-zA-Z0-9\s\-\!]', ' ', text)
+    text = re.sub(r"[^a-zA-Z0-9\s\-\!]", " ", text)
 
     # Replace multiple spaces/newlines with single space
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
 
     # Remove leading/trailing whitespace
     text = text.strip()
@@ -47,7 +48,7 @@ def tokenize_hn_data(output_file="hn_corpus.txt"):
     # Process titles
     if os.path.exists(titles_file):
         print("Processing titles...")
-        with open(titles_file, 'r', encoding='utf-8') as f:
+        with open(titles_file, "r", encoding="utf-8") as f:
             title_count = 0
             for line in f:
                 title = line.strip()
@@ -66,7 +67,7 @@ def tokenize_hn_data(output_file="hn_corpus.txt"):
     # Process comments
     if os.path.exists(comments_file):
         print("Processing comments...")
-        with open(comments_file, 'r', encoding='utf-8') as f:
+        with open(comments_file, "r", encoding="utf-8") as f:
             comment_count = 0
             for line in f:
                 comment = line.strip()
@@ -84,8 +85,8 @@ def tokenize_hn_data(output_file="hn_corpus.txt"):
 
     # Write to output file (space-separated like text8)
     print(f"Writing {len(all_words)} words to {output_file}...")
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(' '.join(all_words))
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(" ".join(all_words))
 
     # Calculate file size
     file_size_mb = os.path.getsize(output_file) / (1024 * 1024)
