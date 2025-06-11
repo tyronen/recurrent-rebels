@@ -30,6 +30,12 @@ We can evaluate models side by side with `python word2vec_eval.py model1 model2`
 c. finetune embeddings
 
 d. regression task
+### Prediction Model Features
+
+- title: words -> dense -> mean (param: emb_dim), length?
+- domain: learned dense embedding (param: emb_dim)
+- user: several scalar features
+- time: hour, day of week (each 2 scalars), 
 
 ## 3. Deploy a predictor service
 
