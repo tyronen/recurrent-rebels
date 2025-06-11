@@ -10,8 +10,7 @@ def load_data(items_file, users_file):
     has_score = merged.dropna(subset=["score"])
     has_title = has_score[has_score["title"].notnull()]
     has_title = has_title[has_title["title"].str.strip().astype(bool)]  # drop empty or whitespace-only
-    numeric = has_title.select_dtypes(include=[np.number])
-    return pd.concat([has_title[["title"]], numeric.drop(columns=["id"])], axis=1)
+    return has_title.drop(columns=["id"])
 
 
 def load_embeddings(embeddings_file):
