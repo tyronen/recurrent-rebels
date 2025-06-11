@@ -9,15 +9,24 @@ import numpy as np
 from dataloader import PostDataset  
 from model import BigModel
 
+import argparse
 import os
 from datetime import datetime
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
+parser = argparse.ArgumentParser(description="Train the master NN.")
+parser.add_argument('--items', default="data/items.parquet", help='Items data frame')
+parser.add_argument('--embeddings', default="skipgram_models/silvery200.pt", help='Word2Cec embeddings')
+parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+parser.add_argument("--epochs", type=int, default=10, help="Epochs")
+parser.add_argument("--lr", type=float, default=1e-3, help="Batch size")
+args = parser.parse_args()
+
 # Hyperparameters
-BATCH_SIZE = 32
-EPOCHS = 10
-LEARNING_RATE = 1e-3
+BATCH_SIZE = args.batch_size
+EPOCHS = args.epochs
+LEARNING_RATE = args.lr
 
 
 def get_device():
@@ -32,15 +41,8 @@ def get_device():
 DEVICE = get_device()
 
 
-def create_dummy_data():
-    data = {
-        'feature1': np.random.rand(1000),
-        'feature2': np.random.rand(1000),
-        'feature3': np.random.rand(1000),
-        'title': ['this is a sample title'] * 1000,
-        'score': np.random.rand(1000) * 100
-    }
-    return pd.DataFrame(data)
+def load_data():
+    return pd.read_parquet(args.items)
 
 def create_dummy_embeddings():
     vocab = ['this', 'is', 'a', 'sample', 'title', 'UNK']
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     global_step = 0
 
     # Prepare data
-    df = create_dummy_data() 
+    df = load_data()
     w2i, embedding_matrix = create_dummy_embeddings() 
 
     dataset = PostDataset(df, embedding_matrix, w2i)
