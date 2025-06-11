@@ -12,19 +12,18 @@ a. look for cues
 
 ## ✅ User Features
 
-- Karma  
-- Number of submitted posts (total posts)  
-- Max upvotes per post  
-- Min upvotes per post  
-- Mean upvotes per post  
-- Posts per year  
-- Total posts  
+- Karma  ✅
+- Number of submitted posts (total posts)  ✅
+- Max upvotes per post  ✅
+- Min upvotes per post  ✅
+- Mean upvotes per post  ✅
+- Posts per year
 - Descendants (total number of comments under the post)  
 - Deepest sub comment level  
 - Number of comments / sub comments  
-- Mean number of comments per post  
+- Mean number of comments per post  ✅
 - Total number of comments  
-- Account age (time they have been a user)  
+- Account age (time they have been a user)  ✅
 - Average number of people engaging on their post (same as average comments per post?)
 
 ## 🕒 Temporal Features
@@ -86,7 +85,7 @@ c. data quality issues
 
 ### Downloading data from the HackerNews DB
 
-`download.py` will download selected comments and titles from the database (136 MB total) as well as the complete set of posts (800 MB). 
+`download.py` will download whatever you ask it to, using command line flags. Available choices are titles, comments, items (posts only) and users. Data is saved in Pandas parquet format.
 
 `tokenizer.py` will tokenize comments and titles into `hn_corpus.txt`.
 
