@@ -25,7 +25,7 @@ a. look for cues
 - Mean number of comments per post  
 - Total number of comments  
 - Account age (time they have been a user)  
-- Average number of people engaging on their post (average comments per post)
+- Average number of people engaging on their post (same as average comments per post?)
 
 ## 🕒 Temporal Features
 
