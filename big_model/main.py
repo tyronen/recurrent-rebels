@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 parser = argparse.ArgumentParser(description="Train the master NN.")
 parser.add_argument('--items', default="data/items.parquet", help='Items data frame')
-parser.add_argument('--embeddings', default="skipgram_models/silvery200.pt", help='Word2Cec embeddings')
+parser.add_argument('--embeddings', default="skipgram_models/silvery200.pt", help='Word2Vec embeddings')
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
 parser.add_argument("--epochs", type=int, default=10, help="Epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Batch size")
@@ -42,15 +42,19 @@ DEVICE = get_device()
 
 
 def load_data():
-    return pd.read_parquet(args.items)
+    rawdf = pd.read_parquet(args.items)
+    has_score = rawdf.dropna(subset=["score"])
+    has_title = has_score[has_score["title"].notnull()]
+    has_title = has_title[has_title["title"].str.strip().astype(bool)]  # drop empty or whitespace-only
+    numeric = has_title.select_dtypes(include=[np.number])
+    return pd.concat([has_title[["title"]], numeric.drop(columns=["id"])], axis=1)
 
-def create_dummy_embeddings():
-    vocab = ['this', 'is', 'a', 'sample', 'title', 'UNK']
-    w2i = {word: idx+1 for idx, word in enumerate(vocab)}
-    w2i['UNK'] = 0 
-
-    embedding_matrix = torch.randn(len(w2i), 50)
-    return w2i, embedding_matrix
+def load_embeddings():
+    efile = torch.load(args.embeddings)
+    embeddings = efile["embeddings"]
+    word_to_ix = efile["word_to_ix"]
+    word_to_ix['UNK'] = 0
+    return word_to_ix, embeddings
 
 
 if __name__ == '__main__':
@@ -69,7 +73,7 @@ if __name__ == '__main__':
 
     # Prepare data
     df = load_data()
-    w2i, embedding_matrix = create_dummy_embeddings() 
+    w2i, embedding_matrix = load_embeddings()
 
     dataset = PostDataset(df, embedding_matrix, w2i)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)

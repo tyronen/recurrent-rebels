@@ -18,9 +18,10 @@ class PostDataset(Dataset):
         self.embedding_matrix = embedding_matrix
         self.w2i_dict = w2i_dict
         
-        # Select user feature columns
-        self.user_feature_cols = [col for col in dataframe.columns if col not in ['title', 'score']]
-    
+        # Select feature columns
+        print(dataframe.dtypes)
+        self.feature_cols = [col for col in dataframe.columns if col not in ['title', 'score']]
+
     def __len__(self):
         return len(self.df)
     
@@ -45,16 +46,19 @@ class PostDataset(Dataset):
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
 
-        # User features
-        user_data = torch.tensor(row[self.user_feature_cols].values, dtype=torch.float32)
-        user_features = extract_features(user_data)
+        # Features
+        if self.feature_cols:
+            data = torch.tensor(row[self.feature_cols].values, dtype=torch.float32)
+            features = extract_features(data)
+        else:
+            features = torch.tensor([], dtype=torch.float32)
 
         # Title embedding
         title_tokens = self.tokenize_title(row['title'])
         title_embedding = self.embed_title(title_tokens)
 
         # Concatenate user features and averaged title embedding
-        x = torch.cat([user_features, title_embedding], dim=0)
+        x = torch.cat([features, title_embedding], dim=0)
 
         # Target score
         y = torch.log(torch.tensor(row['score'] + 1, dtype=torch.float32))
