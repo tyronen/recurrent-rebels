@@ -1,7 +1,10 @@
 import logging
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from sqlalchemy import create_engine, text
 import argparse
+from multiprocessing import Pool
 
 # Run pip install sqlalchemy psycopg2-binary before running this
 
@@ -18,15 +21,40 @@ logging.basicConfig(
 
 def download_query(engine, query, outfile):
     total_rows = 0
-    chunks = pd.read_sql_query(query, engine, chunksize=200000)
-    all_chunks = []
+    logging.info(f"Downloading to {outfile}...")
+    chunks = pd.read_sql_query(query, engine, chunksize=1_000_000)
+    writer = None
     for chunk in chunks:
-        all_chunks.append(chunk)
+        table = pa.Table.from_pandas(chunk)
+        if writer is None:
+            writer = pq.ParquetWriter(outfile, table.schema)
+        writer.write_table(table)
         total_rows += len(chunk)
-        logging.info(f"⏳ Downloaded {total_rows} rows so far for {outfile}")
-    df = pd.concat(all_chunks, ignore_index=True)
-    df.to_parquet(outfile)
-    logging.info(f"✅ Saved {outfile} ({len(df)} rows)")
+        logging.info(f"⏳ Downloaded {total_rows} rows")
+    if writer:
+        writer.close()
+    logging.info(f"✅ Saved {outfile} ({total_rows} rows)")
+
+
+
+def download_items_range(start_id, step, outfile_base, engine_url):
+    end_id = start_id + step
+    chunk_file = outfile_base.replace(".parquet", f"_{start_id}_{end_id}.parquet")
+    query = f'''
+        SELECT id, "by", title, url, time, kids, parent, text, score
+        FROM hacker_news.items
+        WHERE id >= {start_id} AND id < {end_id}
+    '''
+    engine = create_engine(engine_url)
+    download_query(engine, query, chunk_file)
+    return chunk_file
+
+def download_items_in_chunks(engine, outfile, step=1_000_000, id_start=0, id_end=40_000_000):
+    ranges = [(start_id, step, outfile, db_url) for start_id in range(id_start, id_end, step)]
+    with Pool(processes=4) as pool:
+        output_files = pool.starmap(download_items_range, ranges)
+    tables = [pq.read_table(f) for f in output_files]
+    pq.write_table(pa.concat_tables(tables), outfile)
 
 
 def download_hn_data(args):
@@ -52,32 +80,29 @@ def download_hn_data(args):
            AND CARDINALITY(KIDS) > 4
            AND dead IS NULL"""
 
-    # Query 3: All items
-    items_query = """
-        SELECT id, "by", title, url, time, text, score 
-        FROM hacker_news.items
-        WHERE dead IS NULL AND type='story'"""
-
     # Query 4: Users
     users_query = """
-        SELECT 
-            "by", created, karma, CARDINALITY(submitted) as length_submitted,
-            COUNT(*) as story_count,
-            MAX(score) as max_score, MIN(score) as min_score, AVG(score) as mean_score,
-            MAX(descendants) as max_descendants, MIN(descendants) as min_descendants, AVG(descendants) as mean_descendants
-        FROM hacker_news.items i LEFT JOIN hacker_news.users u
-        ON i."by" = u.id
-        WHERE dead IS NULL AND type='story'
-        GROUP BY "by", created, karma, CARDINALITY(submitted)"""
+        SELECT
+          COALESCE(u.id, i."by") AS user_id,
+          MIN(u.created) AS user_created,
+          MIN(i.time) AS first_post_time
+        FROM
+          hacker_news.users u
+        FULL OUTER JOIN
+          hacker_news.items i
+          ON u.id = i."by"
+        GROUP BY
+          COALESCE(u.id, i."by")
+    """
 
-    if args.titles:
-        download_query(engine, titles_query, titles_file)
     if args.comments:
         download_query(engine, comments_query, comments_file)
-    if args.items:
-        download_query(engine, items_query, items_file)
+    if args.titles:
+        download_query(engine, titles_query, titles_file)
     if args.users:
         download_query(engine, users_query, users_file)
+    if args.items:
+        download_items_in_chunks(engine, items_file)
     logging.info(f"✅ All requested data saved")
 
 
