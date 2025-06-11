@@ -16,7 +16,7 @@ a. look for cues
 
 ## ✅ User Features
 
-- Karma  ✅
+- Karma  ❌ (leakage)
 - Number of submitted posts (total posts)  ✅
 - Max upvotes per post  ✅
 - Min upvotes per post  ✅

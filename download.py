@@ -41,7 +41,7 @@ def download_items_range(start_id, step, outfile_base, engine_url):
     end_id = start_id + step
     chunk_file = outfile_base.replace(".parquet", f"_{start_id}_{end_id}.parquet")
     query = f'''
-        SELECT id, "by", title, url, time, kids, parent, text, score
+        SELECT id, "by", dead, title, url, time, kids, parent, text, score
         FROM hacker_news.items
         WHERE id >= {start_id} AND id < {end_id}
     '''
