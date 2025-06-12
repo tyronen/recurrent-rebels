@@ -34,7 +34,7 @@ st.write("Enter an ID or fetch a random recent post to populate the fields below
 st.subheader("Fetch by ID")
 col1, col2 = st.columns([3, 2])
 with col1:
-    item_id_input = st.number_input("Hacker News Post ID", min_value=1, value=1171783, step=1, label_visibility="collapsed")
+    item_id_input = st.number_input("Hacker News Post ID", min_value=1, value=40646061, step=1, label_visibility="collapsed")
 with col2:
     if st.button("Fetch and Populate"):
         with st.spinner(f"Fetching data for item {item_id_input}..."):
