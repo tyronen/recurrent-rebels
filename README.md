@@ -17,13 +17,17 @@ Then run ... for inference.
 
 For more information, see https://github.com/HackerNews/API
 
-## App
+## FastAPI and Streamlit
 Start the app: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
 
 To run a prediction on HN post with a given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
 (e.g. `http://127.0.0.1:8000/predict_hn/130`)
 
 WARNING: This is currently loading a dummy model.
+
+To interact with a graphical interface, start the streamlit app:
+`streamlit run streamlit_app.py`
+and open it in your browser (this needs to run parallel to the FastAPI). Have fun!
 
 ## ✅ User Features
 
