@@ -33,9 +33,9 @@ def log_transform_plus1(x):
     else:
         return np.log10(x+1)
 
-def time_transform(time, offset=2006):
+def time_transform(time):
     timestamp = pd.to_datetime(time)            
-    year = timestamp.year - offset    
+    year = timestamp.year    
     hour_angle = 2 * np.pi * timestamp.hour / 24
     dow_angle = 2 * np.pi * timestamp.dayofweek / 7
     day_angle = 2 * np.pi * timestamp.dayofyear / 365
