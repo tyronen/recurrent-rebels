@@ -28,7 +28,8 @@ def time_features(value):
 
 
 def extract_features(data):
-    # process features as necessary, anything that is not text 
+    # process features as necessary, anything that is not text
+    data = data.fillna(-1)
     
     #extract time features
     feature_values = []

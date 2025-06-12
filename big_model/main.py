@@ -61,7 +61,7 @@ if __name__ == '__main__':
     dataset = PostDataset(df, embedding_matrix, w2i)
     
     # Split dataset into train/validation
-    train_size = int(0.95 * len(dataset))
+    train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     

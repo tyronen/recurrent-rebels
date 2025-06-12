@@ -176,13 +176,14 @@ def main(items_file, posts_file):
     secs_since_prev  = (stories_df["time"] - stories_df["prev_post_time"]).dt.total_seconds()
     stories_df["days_since_first_post"] = secs_since_first / SECONDS_PER_DAY
     stories_df["days_since_last_post"]  = secs_since_prev  / SECONDS_PER_DAY
+    # For a user's very first story, both deltas are undefined; use -1 sentinel
+    first_post_mask = stories_df["num_posts"] == 0
+    stories_df.loc[first_post_mask, ["days_since_first_post", "days_since_last_post"]] = -1
     stories_df["elapsed_years"]         = secs_since_first / SECONDS_PER_YEAR + 1e-6
     stories_df["posts_per_year"]        = stories_df["num_posts"] / stories_df["elapsed_years"]
 
     logging.info("Cumulative counts for dead posts & scores>1")
-    # stories_df["cum_dead_posts"]    = stories_by_author["is_dead"].cumsum().shift().fillna(0)
     stories_df["cum_scores_gt1"]    = stories_by_author["score_above_1"].cumsum().shift().fillna(0)
-    # stories_df["percent_posts_dead"]     = percent(stories_df["cum_dead_posts"], stories_df["num_posts"])
     stories_df["percent_scores_above_1"] = percent(stories_df["cum_scores_gt1"], stories_df["num_posts"])
 
     stories_df["percent_posts_dead"] = percent(stories_df["cum_dead_posts"], stories_df["num_posts_all"])
