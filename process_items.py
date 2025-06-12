@@ -110,10 +110,15 @@ def main(items_file, posts_file):
     tenth_comment_delta = {}
     for sid, times in story_comment_times.items():
         times.sort()
+        t_story = story_time_map.get(sid)
+        if t_story is None:
+            continue  # skip if story timestamp missing
         if len(times) >= 1:
-            first_comment_delta[sid] = (times[0] - story_time_map.get(sid, times[0])).total_seconds()
+            delay = (times[0] - t_story).total_seconds()
+            first_comment_delta[sid] = max(delay, 0.0)
         if len(times) >= 10:
-            tenth_comment_delta[sid] = (times[9] - story_time_map.get(sid, times[9])).total_seconds()
+            delay10 = (times[9] - t_story).total_seconds()
+            tenth_comment_delta[sid] = max(delay10, 0.0)
 
     # Compute all per‑story features without
     # any Python‑level per‑item loop.
@@ -179,14 +184,21 @@ def main(items_file, posts_file):
     # For a user's very first story, both deltas are undefined; use -1 sentinel
     first_post_mask = stories_df["num_posts"] == 0
     stories_df.loc[first_post_mask, ["days_since_first_post", "days_since_last_post"]] = -1
-    stories_df["elapsed_years"]         = secs_since_first / SECONDS_PER_YEAR + 1e-6
+    stories_df["elapsed_years"]         = secs_since_first / SECONDS_PER_YEAR + 1
     stories_df["posts_per_year"]        = stories_df["num_posts"] / stories_df["elapsed_years"]
 
     logging.info("Cumulative counts for dead posts & scores>1")
-    stories_df["cum_scores_gt1"]    = stories_by_author["score_above_1"].cumsum().shift().fillna(0)
+    stories_df["cum_scores_gt1"] = (
+            stories_by_author["score_above_1"].cumsum() - stories_df["score_above_1"]
+    )
     stories_df["percent_scores_above_1"] = percent(stories_df["cum_scores_gt1"], stories_df["num_posts"])
 
-    stories_df["percent_posts_dead"] = percent(stories_df["cum_dead_posts"], stories_df["num_posts_all"])
+    # Ensure numerator ≤ denominator (can mismatch if merge mis‑aligns)
+    stories_df["cum_dead_posts"] = np.minimum(stories_df["cum_dead_posts"], stories_df["num_posts_all"])
+
+    stories_df["percent_posts_dead"] = percent(
+        stories_df["cum_dead_posts"], stories_df["num_posts_all"]
+    )
 
     # Running min / max / mean helper
     def expanding_shifted(series, fn):
@@ -215,6 +227,7 @@ def main(items_file, posts_file):
     # 3. Final selection and write‑out -------------------------------------
     output_cols = [
         "id", "by", "time", "title", "url", "score",
+        "num_posts",
         "percent_posts_dead", "percent_scores_above_1",
         "posts_per_year", "days_since_first_post", "days_since_last_post",
         # user running aggregates (min/max/mean for each metric)
