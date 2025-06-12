@@ -1,14 +1,13 @@
 import streamlit as st
 import requests
 import datetime
+# Import the new helper functions
+from utils.hn_api import get_item, fetch_random_recent_story
 
 # --- Configuration ---
 FASTAPI_URL = "http://127.0.0.1:8000"
-HN_API_BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
 # --- Initialize Session State ---
-# Session state is used to store information across app reruns.
-# We initialize the form fields here to prevent them from resetting.
 if 'by' not in st.session_state:
     st.session_state.by = "testuser"
 if 'title' not in st.session_state:
@@ -16,42 +15,66 @@ if 'title' not in st.session_state:
 if 'url' not in st.session_state:
     st.session_state.url = "http://example.com"
 if 'time_obj' not in st.session_state:
-    # We store the datetime object to easily manage date and time inputs
     st.session_state.time_obj = datetime.datetime.now()
+if 'score' not in st.session_state:
+    st.session_state.score = None
+if 'comments' not in st.session_state:
+    st.session_state.comments = None
 
 # --- Streamlit UI ---
 
 st.title("Hacker News Post Scorer")
 
 # --- Section 1: Fetching Data ---
-st.header("1. Fetch Post Data (Optional)")
-st.write("Enter a Hacker News Post ID to automatically populate the fields below.")
+st.header("1. Fetch Post Data")
+st.write("Enter an ID or fetch a random recent post to populate the fields below.")
 
+# --- Fetch by ID ---
+st.subheader("Fetch by ID")
 col1, col2 = st.columns([3, 2])
 with col1:
     item_id_input = st.number_input("Hacker News Post ID", min_value=1, value=1171783, step=1, label_visibility="collapsed")
-
 with col2:
-    if st.button("Fetch and Populate Form"):
-        try:
-            with st.spinner(f"Fetching data for item {item_id_input}..."):
-                # We can call the public HN API directly from Streamlit
-                response = requests.get(f"{HN_API_BASE_URL}/item/{item_id_input}.json")
-                response.raise_for_status()
-                item_data = response.json()
+    if st.button("Fetch and Populate"):
+        with st.spinner(f"Fetching data for item {item_id_input}..."):
+            item_data = get_item(item_id_input)
+            if item_data and item_data.get("type") == "story":
+                st.session_state.by = item_data.get("by", "")
+                st.session_state.title = item_data.get("title", "")
+                st.session_state.url = item_data.get("url", "")
+                st.session_state.time_obj = datetime.datetime.fromtimestamp(item_data.get("time", 0))
+                st.session_state.score = item_data.get("score", 0)
+                st.session_state.comments = item_data.get("descendants", 0)
+                st.success(f"Successfully populated form with data for ID {item_id_input}.")
+            else:
+                st.warning(f"Item {item_id_input} is not a story or was not found.")
+                st.session_state.score, st.session_state.comments = None, None
 
-                if item_data and item_data.get("type") == "story":
-                    # Update session state with the fetched data
-                    st.session_state.by = item_data.get("by", "")
-                    st.session_state.title = item_data.get("title", "")
-                    st.session_state.url = item_data.get("url", "")
-                    st.session_state.time_obj = datetime.datetime.fromtimestamp(item_data.get("time", 0))
-                    st.success(f"Successfully populated form with data for ID {item_id_input}.")
-                else:
-                    st.warning(f"Item {item_id_input} is not a story or was not found.")
+# --- Fetch Random ---
+st.subheader("Fetch Random Recent Post")
+if st.button("Fetch and Populate Random"):
+    with st.spinner("Searching for a random recent story..."):
+        item_data = fetch_random_recent_story()
+        if item_data:
+            st.session_state.by = item_data.get("by", "")
+            st.session_state.title = item_data.get("title", "")
+            st.session_state.url = item_data.get("url", "")
+            st.session_state.time_obj = datetime.datetime.fromtimestamp(item_data.get("time", 0))
+            st.session_state.score = item_data.get("score", 0)
+            st.session_state.comments = item_data.get("descendants", 0)
+            st.success(f"Successfully populated form with data for random post ID {item_data.get('id')}.")
+        else:
+            st.error("Could not find a random recent story. Please try again.")
+            st.session_state.score, st.session_state.comments = None, None
 
-        except requests.exceptions.RequestException as e:
-            st.error(f"Failed to fetch data from Hacker News API: {e}")
+# Display metrics if they exist in the session state
+if st.session_state.score is not None:
+    st.write("---")
+    metric_col1, metric_col2 = st.columns(2)
+    with metric_col1:
+        st.metric("Current Score", st.session_state.score)
+    with metric_col2:
+        st.metric("Comments", st.session_state.comments)
 
 st.divider()
 
@@ -59,18 +82,13 @@ st.divider()
 st.header("2. Review Data and Predict Score")
 st.write("Review or edit the populated data, then click predict.")
 
-
-# The input fields now use the values stored in session_state.
-# This means they will update automatically when the "Fetch" button is clicked.
 by_input = st.text_input("Author (by)", key="by")
 title_input = st.text_input("Post Title", key="title")
 url_input = st.text_input("URL", key="url")
 
-# Split the datetime object for the UI widgets
 date_input = st.date_input("Post Date", st.session_state.time_obj.date())
 time_input = st.time_input("Post Time", st.session_state.time_obj.time())
 
-# Convert the final date and time back to a Unix timestamp for the API
 datetime_obj = datetime.datetime.combine(date_input, time_input)
 time_stamp = int(datetime_obj.timestamp())
 
@@ -83,16 +101,14 @@ if st.button("Predict Score"):
         "url": url_input,
         "time": time_stamp
     }
-
     try:
         with st.spinner("Getting prediction..."):
             response = requests.post(f"{FASTAPI_URL}/predict/direct", json=payload)
             response.raise_for_status()
-
             prediction_data = response.json()
             st.success("Prediction successful!")
-            st.write(f"**Predicted Class:** `{prediction_data['prediction']}`")
-            st.bar_chart(prediction_data['probabilities'])
+            st.write(f"**Predicted Score:** `{prediction_data['prediction']}`")
+
             with st.expander("See Raw JSON Response"):
                 st.json(prediction_data)
 
