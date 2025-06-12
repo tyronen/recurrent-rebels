@@ -1,6 +1,7 @@
 import pandas as pd
 import argparse
 import logging
+import numpy as np
 
 from collections import defaultdict
 
@@ -19,13 +20,24 @@ def mean(x):
     return 0 if len(x) == 0 else sum(x) / len(x)
 
 def percent(num, denom):
-    return 0 if denom == 0 else 100.0 * num / denom
+    return np.where(denom == 0, 0, 100.0 * num / denom)
 
-def comment_calculations(parent_map, comments):
-    logging.info("Calculating depth and comment arrival times per story")
+def comment_calculations(parent_map, comments, _story_ids_unused=None):
+    """
+    Compute per‑story maximum depth and arrival times using a single
+    Python itertuples loop (faster than using pandas).
+
+    Returns
+    -------
+    depth_dict : dict[story_id, int]
+        Maximum depth reached under each story.
+    story_comment_times : dict[story_id, list[int]]
+        Arrival timestamps (epoch‑seconds) of every comment under
+        the story (unsorted).
+    """
     depth_dict = defaultdict(int)
-    depth_cache = {}
     story_comment_times = defaultdict(list)
+    depth_cache = {}
 
     def _depth(cid):
         if cid in depth_cache:
@@ -45,12 +57,12 @@ def comment_calculations(parent_map, comments):
         while p is not None and not pd.isna(p):
             root = p
             p = parent_map.get(root)
-        depth_dict[root] = max(depth_dict[root], d)
+
+        if d > depth_dict[root]:
+            depth_dict[root] = d
         story_comment_times[root].append(row.time)
+
     return depth_dict, story_comment_times
-
-
-
 
 def get_story_author(parent_map, story_author_map, comment_id):
     # Ascend to the root story to see whose post this comment belongs to
@@ -71,8 +83,6 @@ def main(items_file, posts_file):
     parent_map = not_dead.set_index("id")["parent"].to_dict()
     logging.info("Filtering for stories")
     stories = not_dead[not_dead["type"] == "story"].set_index("id")
-    logging.info("Building story author lookup map")
-    story_author_map = stories["by"].to_dict()
     logging.info("Filtering for comments")
     comments = not_dead[not_dead["type"] == "comment"].copy()
     logging.info("Calculating comment length")
@@ -92,6 +102,7 @@ def main(items_file, posts_file):
     logging.info("Building story → time map")
     story_time_map = stories["time"].to_dict()
 
+    logging.info("Calculating depth and comment arrival times per story")
     depth_dict, story_comment_times = comment_calculations(parent_map, comments)
 
     logging.info("Computing first/10th comment delays")
@@ -104,126 +115,115 @@ def main(items_file, posts_file):
         if len(times) >= 10:
             tenth_comment_delta[sid] = (times[9] - story_time_map.get(sid, times[9])).total_seconds()
 
-    post_features = []
+    # Compute all per‑story features without
+    # any Python‑level per‑item loop.
+    logging.info("Preparing story feature frame")
+    stories_df = (
+        stories.reset_index()               # bring id back as a column
+               .sort_values("time")         # chronological for merge_asof later
+               .copy()
+    )
+    story_ids = stories_df["id"]
 
-    logging.info("Starting loop")
-    user_state = defaultdict(lambda: {
-        "scores": [0],
-        "comment_lengths": [0],
-        "kids": [0],
-        "descendants": [0],
-        "depths": [0],
-        "commenters": [0],
-        "first_comment_times": [0],
-        "tenth_comment_times": [0],
-        "commented_story_ids": set(),
-        "first_time": None,
-        "last_time": None,
-        "dead_posts": 0,
-        "scores_above_1": 0
-    })
+    # 2. Cumulative / prior‑post user statistics ---------------------------
+    # ------------------------------------------------------------------
+    # Dead‑post stats must consider *all* stories (dead + live).
+    # Build a small frame with cumulative dead counts per author, then
+    # merge the relevant columns back onto stories_df (which only
+    # contains live stories).
+    # ------------------------------------------------------------------
+    logging.info("Computing dead‑post history from all stories")
+    stories_all = (
+        items[items["type"] == "story"]
+        .sort_values("time")
+        .copy()
+    )
+    if stories_all["time"].dtype != "datetime64[ns]":
+        stories_all["time"] = pd.to_datetime(stories_all["time"], unit="s")
 
-    for row in items.itertuples(index=False):
-        u = row.by
-        if u not in user_state:
-            user_state[u] = {
-                "scores": [0],
-                "comment_lengths": [0],
-                "kids": [0],
-                "descendants": [0],
-                "depths": [0],
-                "commenters": [0],
-                "first_comment_times": [0],
-                "tenth_comment_times": [0],
-                "commented_story_ids": set(),
-                "first_time": row.time,
-                "last_time": row.time,
-                "dead_posts": 0,
-                "scores_above_1": 0
-            }
+    stories_all["is_dead"] = stories_all["dead"].notna().astype(int)
+    all_stories_by_author = stories_all.groupby("by", sort=False)
+    stories_all["num_posts_all"] = all_stories_by_author.cumcount()
+    stories_all["cum_dead_posts"] = all_stories_by_author["is_dead"].cumsum().shift().fillna(0)
 
-        state = user_state[u]
-        if state["first_time"] is None:
-            state["first_time"] = row.time
+    dead_cols = stories_all.loc[stories_all["dead"].isnull(), ["id", "num_posts_all", "cum_dead_posts"]]
+    stories_df = stories_df.merge(dead_cols, on="id", how="left")
 
-        depth_this_item = depth_dict.get(row.id, 0)
-        if row.type == "story":
-            if row.dead:
-                state["dead_posts"] += 1
-                continue
-            delta_first = (row.time - state["first_time"]).total_seconds()
-            delta_last  = (row.time - state["last_time"]).total_seconds()
-            elapsed_years = delta_first / SECONDS_PER_YEAR + 1
-            days_since_first_post = delta_first / SECONDS_PER_DAY
-            days_since_last_post  = delta_last  / SECONDS_PER_DAY
-            num_posts = len(state["scores"])
-            posts_per_year = num_posts / elapsed_years
-            post_commenters = distinct_commenter_counts.get(row.id, 0)
-            post_features.append({
-                "id": row.id,
-                "by": u,
-                "time": row.time,
-                "title": row.title,
-                "url": row.url,
-                "score": row.score,
-                "num_posts": num_posts,
-                "percent_posts_dead": percent(state["dead_posts"], state["dead_posts"] + num_posts),
-                "percent_scores_above_1": percent(state["scores_above_1"], num_posts),
-                "posts_per_year": posts_per_year,
-                "days_since_first_post": days_since_first_post,
-                "days_since_last_post": days_since_last_post,
-                "user_depth_min": min(state["depths"]),
-                "user_depth_max": max(state["depths"]),
-                "user_depth_mean": mean(state["depths"]),
-                "num_comments": comment_counts.get(row.id, 0),
-                "descendants_min": min(state["descendants"]),
-                "descendants_max": max(state["descendants"]),
-                "descendants_mean": mean(state["descendants"]),
-                "post_commenters_min": min(state["commenters"]),
-                "post_commenters_max": max(state["commenters"]),
-                "post_commenters_mean": mean(state["commenters"]),
-                "first_comment_delay_min": min(state["first_comment_times"]),
-                "first_comment_delay_max": max(state["first_comment_times"]),
-                "first_comment_delay_mean": mean(state["first_comment_times"]),
-                "tenth_comment_delay_min": min(state["tenth_comment_times"]),
-                "tenth_comment_delay_max": max(state["tenth_comment_times"]),
-                "tenth_comment_delay_mean": mean(state["tenth_comment_times"]),
-                "other_posts_commented": len(state["commented_story_ids"]),
-                "user_score_min": min(state["scores"]),
-                "user_score_max": max(state["scores"]),
-                "user_score_mean": mean(state["scores"]),
-                "user_comment_len_min": min(state["comment_lengths"]),
-                "user_comment_len_max": max(state["comment_lengths"]),
-                "user_comment_len_mean": mean(state["comment_lengths"]),
-                "user_kids_min": min(state["kids"]),
-                "user_kids_max": max(state["kids"]),
-                "user_kids_mean": mean(state["kids"])
-            })
+    logging.info("Per‑story fields")
+    stories_df["num_comments"]      = story_ids.map(comment_counts).fillna(0).astype(int)
+    stories_df["post_commenters"]   = story_ids.map(distinct_commenter_counts).fillna(0).astype(int)
+    stories_df["depth"]             = story_ids.map(depth_dict).fillna(0).astype(int)
+    stories_df["first_comment_delay"]  = story_ids.map(first_comment_delta).fillna(0)
+    stories_df["tenth_comment_delay"]  = story_ids.map(tenth_comment_delta).fillna(0)
+    stories_df["score_above_1"]        = (stories_df["score"] > 1).astype(int)
 
-            if row.id in first_comment_delta:
-                state["first_comment_times"].append(first_comment_delta[row.id])
-            if row.id in tenth_comment_delta:
-                state["tenth_comment_times"].append(tenth_comment_delta[row.id])
-            if row.score > 1:
-                state["scores_above_1"] += 1
+    logging.info("Elapsed time stats")
+    if stories_df["time"].dtype != "datetime64[ns]":
+        stories_df["time"] = pd.to_datetime(stories_df["time"], unit="s")
 
-            state["scores"].append(row.score or 0)
-            state["descendants"].append(row.descendants or 0)
-            state["commenters"].append(post_commenters)
-            state["last_time"] = row.time
-        elif row.type == "comment" and not row.dead and row.text:
-            state["kids"].append(len(row.kids) if isinstance(row.kids, list) else 0)
-            state["commenters"][-1] = state["commenters"][-1] + 0  # placeholder to keep list length accurate
-            story_author = get_story_author(parent_map, story_author_map, row.id)
-            if story_author is not None and story_author != u:
-                state["commented_story_ids"].add(row.id)
-        # Both stories and comments can have depths
-        state["depths"].append(depth_this_item)
+    # 2. Cumulative / prior‑post user statistics ---------------------------
+    logging.info("Computing cumulative user statistics")
+    stories_by_author = stories_df.groupby("by", sort=False)
 
+    logging.info("Cumulative post counts")
+    stories_df["num_posts"] = stories_by_author.cumcount()
 
-    post_df = pd.DataFrame(post_features)
+    logging.info("First & previous post times")
+    stories_df["first_post_time"]   = stories_by_author["time"].transform("first")
+    stories_df["prev_post_time"]    = stories_by_author["time"].shift()
+
+    secs_since_first = (stories_df["time"] - stories_df["first_post_time"]).dt.total_seconds()
+    secs_since_prev  = (stories_df["time"] - stories_df["prev_post_time"]).dt.total_seconds()
+    stories_df["days_since_first_post"] = secs_since_first / SECONDS_PER_DAY
+    stories_df["days_since_last_post"]  = secs_since_prev  / SECONDS_PER_DAY
+    stories_df["elapsed_years"]         = secs_since_first / SECONDS_PER_YEAR + 1e-6
+    stories_df["posts_per_year"]        = stories_df["num_posts"] / stories_df["elapsed_years"]
+
+    logging.info("Cumulative counts for dead posts & scores>1")
+    # stories_df["cum_dead_posts"]    = stories_by_author["is_dead"].cumsum().shift().fillna(0)
+    stories_df["cum_scores_gt1"]    = stories_by_author["score_above_1"].cumsum().shift().fillna(0)
+    # stories_df["percent_posts_dead"]     = percent(stories_df["cum_dead_posts"], stories_df["num_posts"])
+    stories_df["percent_scores_above_1"] = percent(stories_df["cum_scores_gt1"], stories_df["num_posts"])
+
+    stories_df["percent_posts_dead"] = percent(stories_df["cum_dead_posts"], stories_df["num_posts_all"])
+
+    # Running min / max / mean helper
+    def expanding_shifted(series, fn):
+        return getattr(series.groupby(stories_df["by"], sort=False).expanding(), fn)().shift().reset_index(level=0, drop=True)
+
+    logging.info("Computing expanding mins / maxes / means")
+    for col in ["depth", "descendants", "num_comments", "post_commenters",
+                "first_comment_delay", "tenth_comment_delay", "score"]:
+        stories_df[f"user_{col}_min"]  = expanding_shifted(stories_df[col], "min")
+        stories_df[f"user_{col}_max"]  = expanding_shifted(stories_df[col], "max")
+        stories_df[f"user_{col}_mean"] = expanding_shifted(stories_df[col], "mean")
+
+    # For rows where the running aggregate is NaN (i.e., author's first post),
+    # fill with the current post's own metric value; otherwise leave as‑is.
+    fill_map = {}
+    for c in stories_df.columns:
+        if not c.startswith("user_"):
+            continue
+        base_metric = c.split("_", 2)[1]  # e.g. user_depth_min -> depth
+        if base_metric in stories_df.columns:
+            fill_map[c] = stories_df[base_metric]
+        else:
+            fill_map[c] = 0  # fallback
+    stories_df.fillna(fill_map, inplace=True)
+
+    # 3. Final selection and write‑out -------------------------------------
+    output_cols = [
+        "id", "by", "time", "title", "url", "score",
+        "percent_posts_dead", "percent_scores_above_1",
+        "posts_per_year", "days_since_first_post", "days_since_last_post",
+        # user running aggregates (min/max/mean for each metric)
+    ] + [c for c in stories_df.columns if c.startswith("user_")]
+    logging.info(f"Output columns: {output_cols}")
+
+    post_df = stories_df[output_cols].copy()
+
     logging.info(f"Writing {posts_file}")
-    post_df.to_parquet(posts_file)
+    post_df.to_parquet(posts_file, index=False)
     logging.info(f"Wrote {post_df.shape[0]} posts")
 
 if __name__ == "__main__":
