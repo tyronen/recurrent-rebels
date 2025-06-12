@@ -17,7 +17,10 @@ def init_worker(embedding_matrix, w2i_dict, Tmin, Tmax):
     global global_w2i
     global global_Tmin
     global global_Tmax
-    global_embedding_matrix = torch.tensor(embedding_matrix)
+    if isinstance(embedding_matrix, torch.Tensor):
+        global_embedding_matrix = embedding_matrix.detach().clone()
+    else:
+        global_embedding_matrix = torch.tensor(embedding_matrix)
     global_w2i = w2i_dict
     global_Tmin = Tmin
     global_Tmax = Tmax
@@ -36,14 +39,13 @@ def extract_features(row):
         np.cos(dow_angle),
         np.sin(day_angle),
         np.cos(day_angle),
-        log_transform_plus1(row['length_submitted']),
-        log_transform_plus1(row['story_count'])
+        log_transform_plus1(row['num_posts'])
     ]
 
-    # Collect all remaining user features (everything except time, title, score, length_submitted, story_count)
+    # Collect all remaining user features (everything except those handled above
     user_feature_names = [
-        col for col in row.index
-        if col not in ['time', 'title', 'score', 'length_submitted', 'story_count']
+        col for col in row.keys()
+        if col not in ['time', 'title', 'score', 'url', 'num_posts']
     ]
 
     user_feats = [row[col] for col in user_feature_names]

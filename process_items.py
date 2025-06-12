@@ -74,7 +74,6 @@ def get_story_author(parent_map, story_author_map, comment_id):
 
 # Running min / max / mean helper
 def expanding_shifted(stories_df, col, fn):
-    # return getattr(series.groupby(stories_df["by"], sort=False).expanding(), fn)().shift().reset_index(level=0, drop=True)
     return stories_df.groupby("by", sort=False)[col].transform(
         lambda x: getattr(x.expanding(), fn)().shift())
 
