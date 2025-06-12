@@ -50,7 +50,7 @@ def build_vocab(values, min_freq=1, topk=None):
 
 def extract_features(row):
     # Time features
-    year, hour_angle, dow_angle, day_angle = time_transform(row['time'], offset=global_Tmin.year)
+    year, hour_angle, dow_angle, day_angle = time_transform(row['time'])
     year_norm = (year - global_Tmin.year) / (global_Tmax.year - global_Tmin.year)
 
     time_feats = [
