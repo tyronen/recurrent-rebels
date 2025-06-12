@@ -7,21 +7,16 @@ from dataloader import PostDataset
 from model import BigModel
 import os
 from datetime import datetime
-from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
-import numpy as np
-import pandas as pd
 import optuna
 
 # CONSTANTS
 DEVICE = get_device()
 EMBEDDING_FILE = "skipgram_models/silvery200.pt"
-ITEMS_FILE = "data/items.parquet"
-USER_FILE = "data/users.parquet"
+ITEMS_FILE = "data/posts.parquet"
 EPOCHS = 2  # You can increase for better optimization
 
 # Load and prepare data once globally
-df = load_data(ITEMS_FILE, USER_FILE)
+df = load_data(ITEMS_FILE)
 df = df.drop(["by", "url", "text", "created", "karma", 'max_score', 'min_score',
               'mean_score', 'max_descendants', 'min_descendants', 'mean_descendants'], axis=1)
 df = df.sort_values(by="time").reset_index(drop=True)

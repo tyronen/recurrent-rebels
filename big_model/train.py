@@ -10,7 +10,6 @@ from datetime import datetime
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-import pandas as pd
 
 # Hyperparameters
 BATCH_SIZE = 64
