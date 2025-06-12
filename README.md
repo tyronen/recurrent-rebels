@@ -15,10 +15,10 @@ a. look for cues
 # 🔎 Feature Brainstorming for Hacker News Upvote Prediction
 
 ## App
-    Startup: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
-    To run prediction on HN post with given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
-    E.g.: `http://127.0.0.1:8000/predict_hn/130`
-    TODO: This is currently loading a dummy model.
+Startup: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
+To run prediction on HN post with given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
+E.g.: `http://127.0.0.1:8000/predict_hn/130`
+WARNING: This is currently loading a dummy model.
 
 ## ✅ User Features
 
