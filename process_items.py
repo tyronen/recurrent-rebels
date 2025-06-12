@@ -72,6 +72,13 @@ def get_story_author(parent_map, story_author_map, comment_id):
         pid = parent_map.get(comment_id)
     return story_author_map.get(comment_id)
 
+# Running min / max / mean helper
+def expanding_shifted(stories_df, col, fn):
+    # return getattr(series.groupby(stories_df["by"], sort=False).expanding(), fn)().shift().reset_index(level=0, drop=True)
+    return stories_df.groupby("by", sort=False)[col].transform(
+        lambda x: getattr(x.expanding(), fn)().shift())
+
+
 def main(items_file, posts_file):
     logging.info(f"Reading {items_file}")
     items = pd.read_parquet(items_file)
@@ -200,29 +207,16 @@ def main(items_file, posts_file):
         stories_df["cum_dead_posts"], stories_df["num_posts_all"]
     )
 
-    # Running min / max / mean helper
-    def expanding_shifted(series, fn):
-        return getattr(series.groupby(stories_df["by"], sort=False).expanding(), fn)().shift().reset_index(level=0, drop=True)
-
     logging.info("Computing expanding mins / maxes / means")
     for col in ["depth", "descendants", "num_comments", "post_commenters",
                 "first_comment_delay", "tenth_comment_delay", "score"]:
-        stories_df[f"user_{col}_min"]  = expanding_shifted(stories_df[col], "min")
-        stories_df[f"user_{col}_max"]  = expanding_shifted(stories_df[col], "max")
-        stories_df[f"user_{col}_mean"] = expanding_shifted(stories_df[col], "mean")
+        stories_df[f"user_{col}_min"]  = expanding_shifted(stories_df, col, "min")
+        stories_df[f"user_{col}_max"]  = expanding_shifted(stories_df, col, "max")
+        stories_df[f"user_{col}_mean"] = expanding_shifted(stories_df, col, "mean")
 
-    # For rows where the running aggregate is NaN (i.e., author's first post),
-    # fill with the current post's own metric value; otherwise leave as‑is.
-    fill_map = {}
-    for c in stories_df.columns:
-        if not c.startswith("user_"):
-            continue
-        base_metric = c.split("_", 2)[1]  # e.g. user_depth_min -> depth
-        if base_metric in stories_df.columns:
-            fill_map[c] = stories_df[base_metric]
-        else:
-            fill_map[c] = 0  # fallback
-    stories_df.fillna(fill_map, inplace=True)
+    # On a user's very first post every user_* aggregate should be 0
+    user_cols = [c for c in stories_df.columns if c.startswith("user_")]
+    stories_df[user_cols] = stories_df[user_cols].fillna(0)
 
     # 3. Final selection and write‑out -------------------------------------
     output_cols = [

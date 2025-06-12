@@ -16,7 +16,7 @@ import pandas as pd
 BATCH_SIZE = 64
 EPOCHS = 5
 LEARNING_RATE = 1e-3
-# TIME_DECAY = 0.02
+TIME_DECAY = 0.02
 DEVICE = get_device()
 TRAIN_FILE = "precomputed_npz/train.npz"
 VAL_FILE = "precomputed_npz/val.npz"
