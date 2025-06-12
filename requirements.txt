@@ -8,6 +8,7 @@ uvicorn>=0.24.0
 # Data Processing
 pandas>=1.5.0
 numpy>=1.21.0
+pyarrow>=10.0.0
 
 # HTTP Client
 httpx>=0.28.0
