@@ -1,23 +1,46 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-import numpy as np
+from pydantic import BaseModel
 import httpx
 import torch
-from .model import BigModel # possibly change later
+import pandas as pd
+
+from big_model.utils import extract_features, get_device
+from big_model.model import FullModel
+import logging
+
+MODEL_PATH="big_model/models/20250612_191343/best_model_1.pth"
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
+)
 
 app = FastAPI()
 HN_API_BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
 #Initialize the model -- change as desired
-MODEL_PATH = "app/model.pth"
-
-model = BigModel(vector_size=200, scale=3)
-model.load_state_dict(torch.load(MODEL_PATH))
+device = get_device()
+checkpoint = torch.load(MODEL_PATH, map_location=device)
+config = checkpoint["config"]
+model_state_dict = checkpoint["model_state_dict"]
+model = FullModel(**config).to(device)
+model.load_state_dict(model_state_dict)
 model.eval()
 
+
+# Load your processed data once at startup
+logging.info("Loading inference data...")
+posts_df = pd.read_parquet("../data/posts.parquet")
+
+# Create a fast lookup structure: user -> their latest features
+user_features = {
+    user: posts_df[posts_df['by'] == user].sort_values('time').iloc[-1][posts_df.columns].to_dict()
+    for user in posts_df['by'].unique()
+}
+
+logging.info(f"Loaded features for {len(user_features)} users")
+
+
 #Define the request and response pydantic models
-
-
 class HNPostData(BaseModel):
     by: str
     title: str
@@ -31,9 +54,22 @@ class PredictionResponse(BaseModel):
 
 
 def preprocess_input(data: dict) -> list[float]:
-    #TODO: Implement the preprocessing logic 
-    #return format must match model requirements
-    return torch.randn(200)
+    # Get user features from memory (instant lookup)
+    username = data['by']
+    if username in user_features:
+        row = user_features[username]
+    else:
+        # New user - all zeros
+        row = {col: 0 for col in posts_df.columns}
+
+    row['by'] = data['by']
+    row['title'] = data['title']
+    row['url'] = data['url']
+    row['time'] = data['time']
+    features = extract_features(row)
+    prediction = model.predict(features)
+
+    return prediction
 
 async def get_hn_item(item_id: int) -> dict:
     try:

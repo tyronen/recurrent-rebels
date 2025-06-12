@@ -38,10 +38,6 @@ if __name__ == '__main__':
     with open(VOCAB_FILE, 'r') as f:
         vocabs = json.load(f)
 
-    domain_vocab_size = len(vocabs['domain_vocab'])
-    tld_vocab_size = len(vocabs['tld_vocab'])
-    user_vocab_size = len(vocabs['user_vocab'])
-
     # Dataset
     train_dataset = PrecomputedNPZDataset(TRAIN_FILE, time_decay=None)
     val_dataset = PrecomputedNPZDataset(VAL_FILE, time_decay=None)
@@ -53,23 +49,27 @@ if __name__ == '__main__':
 
     sample_batch = train_dataset[0]
     features_num_sample, title_emb_sample, *_ = sample_batch
-    vector_size_title = title_emb_sample.shape[0]
-    vector_size_num = features_num_sample.shape[0]
+    # Save config used to build the model
+    config = {
+        'vector_size_title': title_emb_sample.shape[0],
+        'vector_size_num': features_num_sample.shape[0],
+        'scale': 3,
+        'domain_vocab_size': len(vocabs['domain_vocab']),
+        'tld_vocab_size': len(vocabs['tld_vocab']),
+        'user_vocab_size' : len(vocabs['user_vocab'])
+    }
+    with open(os.path.join(model_dir, 'config.json'), 'w') as f:
+        json.dump(config, f)
 
-    model = FullModel(vector_size_num=vector_size_num,
-                    vector_size_title=vector_size_title,
-                    scale=3,
-                    domain_vocab_size=domain_vocab_size,
-                    tld_vocab_size=tld_vocab_size,
-                    user_vocab_size=user_vocab_size).to(DEVICE)
+    model = FullModel(**config).to(DEVICE)
 
     # Generate a summary
     summary(model, input_data=(
-        torch.randn(1, vector_size_num).to(DEVICE),
-        torch.randn(1, vector_size_title).to(DEVICE),
-        torch.randint(0, domain_vocab_size, (1,)).to(DEVICE),
-        torch.randint(0, tld_vocab_size, (1,)).to(DEVICE),
-        torch.randint(0, user_vocab_size, (1,)).to(DEVICE),
+        torch.randn(1, config['vector_size_num']).to(DEVICE),
+        torch.randn(1, config['vector_size_title']).to(DEVICE),
+        torch.randint(0, config['domain_vocab_size'], (1,)).to(DEVICE),
+        torch.randint(0, config['tld_vocab_size'], (1,)).to(DEVICE),
+        torch.randint(0, config['user_vocab_size'], (1,)).to(DEVICE),
     ))
 
     # Loss and optimizer
@@ -159,6 +159,7 @@ if __name__ == '__main__':
             model_path = os.path.join(model_dir, f'best_model_{epoch}.pth')
             torch.save({
                 'model_state_dict': model.state_dict(),
+                'config': config
             }, model_path)
             print(f"✓ Saved new best model at epoch {epoch} with val loss {avg_val_loss:.4f}")
 

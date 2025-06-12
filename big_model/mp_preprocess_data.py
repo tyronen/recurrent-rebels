@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from utils import load_data, load_embeddings, log_transform_plus1, time_transform
+from utils import load_embeddings, extract_features
 from tqdm import tqdm
 import multiprocessing as mp
 import json
@@ -47,33 +47,6 @@ def build_vocab(values, min_freq=1, topk=None):
     for idx, (v, count) in enumerate(items, start=1):
         vocab[v] = idx
     return vocab
-
-def extract_features(row):
-    # Time features
-    year, hour_angle, dow_angle, day_angle = time_transform(row['time'])
-    year_norm = (year - global_Tmin.year) / (global_Tmax.year - global_Tmin.year)
-
-    time_feats = [
-        year_norm,
-        np.sin(hour_angle),
-        np.cos(hour_angle),
-        np.sin(dow_angle),
-        np.cos(dow_angle),
-        np.sin(day_angle),
-        np.cos(day_angle),
-        log_transform_plus1(row['num_posts'])
-    ]
-
-    # Collect all remaining user features (everything except those handled above
-    user_feature_names = [
-        col for col in row.keys()
-        if col not in ['by', 'time', 'title', 'score', 'url', 'num_posts']
-    ]
-
-    user_feats = [row[col] for col in user_feature_names]
-
-    all_features = np.array(time_feats + user_feats, dtype=np.float32)
-    return all_features
 
 
 def normalize_url(url):
