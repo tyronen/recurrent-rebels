@@ -2,49 +2,37 @@ import torch
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
-import re
+from utils import log_transform_plus1, time_transform
 
 
-def time_features(value):
-    # Convert timestamp to multiple features
-    timestamp = pd.to_datetime(value)
+def extract_features(data, no_of_features=9):
 
-    # Year as regular feature
-    time_features  = [timestamp.year]
+    features = np.zeros(no_of_features)
 
-    # Hour as circular features (0-23)
-    hour_angle = 2 * np.pi * timestamp.hour / 24
-    dow_angle = 2 * np.pi * timestamp.dayofweek / 7
-    day_angle = 2 * np.pi * timestamp.dayofyear / 365
-    time_features.extend([
-        np.sin(hour_angle),
-        np.cos(hour_angle),
-        np.sin(dow_angle),
-        np.cos(dow_angle),
-        np.sin(day_angle),
-        np.cos(day_angle)
-    ])
-    return time_features
-
-
-def extract_features(data):
-    # process features as necessary, anything that is not text
-    data = data.fillna(-1)
-    
-    #extract time features
-    feature_values = []
-    
     for col_name, value in data.items():
         if col_name == 'time':
-            feature_values.extend(time_features(value))
-        else:
-            feature_values.append(value)
+
+            year, hour_angle, dow_angle, day_angle = time_transform(value, offset=2006)
+            # for clarity downwards instead of one line
+            features[0] = year / (2023 - 2006) # divide by max difference for easier values, need to make this a variable
+            features[1] = np.sin(hour_angle)
+            features[2] = np.cos(hour_angle)
+            features[3] = np.sin(dow_angle)
+            features[4] = np.cos(dow_angle)
+            features[5] = np.sin(day_angle)
+            features[6] = np.cos(day_angle)
+        
+        elif col_name == 'length_submitted':
+            features[7] = log_transform_plus1(value)
+        
+        elif col_name == 'story_count':
+            features[8] = log_transform_plus1(value) 
     
-    return torch.tensor(feature_values, dtype=torch.float32)
+    return torch.tensor(features, dtype=torch.float32)
 
 
 class PostDataset(Dataset):
-    def __init__(self, dataframe, embedding_matrix, w2i_dict):
+    def __init__(self, dataframe, embedding_matrix, w2i_dict, ref_time=None, lambda_=None):
         """
         dataframe: pandas DataFrame with user features, title (raw text), and score
         embedding_matrix: torch.Tensor of shape (vocab_size, embedding_dim)
@@ -54,10 +42,16 @@ class PostDataset(Dataset):
         self.embedding_matrix = embedding_matrix
         self.w2i_dict = w2i_dict
         
-        # Select feature columns
-        print(dataframe.dtypes)
-        self.feature_cols = [col for col in dataframe.columns if col not in ['title', 'score', 'url']]
+        if ref_time is not None:
+            self.ref_time = ref_time
+            self.lambda_ = lambda_
+            self.df['time'] = pd.to_datetime(self.df['time'])
+            delta_t = (self.ref_time - self.df['time']) / np.timedelta64(30, 'D')  # months
+            self.weights = np.exp(-self.lambda_ * delta_t)
+        else:
+            self.weights = None
 
+        self.feature_cols = [col for col in dataframe.columns if col in ["time", "length_submitted", "story_count"]]
 
     def __len__(self):
         return len(self.df)
@@ -67,7 +61,7 @@ class PostDataset(Dataset):
         Converts raw title text into list of token indices using w2i_dict.
         Unknown words get index 0 (like your CBOW model does).
         """
-        tokens = re.findall(r'[a-zA-Z]+', title_text.lower())  # split along any non-alphabetic characters
+        tokens = title_text.lower().split()  # simple whitespace tokenizer
         token_indices = [self.w2i_dict.get(token, 0) for token in tokens]
         return token_indices
     
@@ -84,21 +78,58 @@ class PostDataset(Dataset):
         row = self.df.iloc[idx]
 
         # Features
-        if self.feature_cols:
-            data = row[self.feature_cols]
-            features = extract_features(data) #return tensor
-        else:
-            features = torch.tensor([], dtype=torch.float32)
-
+        features = extract_features(data=row[self.feature_cols]) #return tensor
+            
         # Title embedding
         title_tokens = self.tokenize_title(row['title'])
         title_embedding = self.embed_title(title_tokens)
 
-        # Concatenate user features and averaged title embedding
         x = torch.cat([features, title_embedding], dim=0)
 
         # Target score
         score = torch.clamp(torch.tensor(row['score'], dtype=torch.float32), min=0)
-        y = torch.log(score + 1)
+        y = torch.log10(score + 1)
 
-        return x, y
+        if self.weights is not None:
+            weight = self.weights.iloc[idx]
+            return x, y, weight
+        else:
+            return x, y
+
+
+class PrecomputedNPZDataset(Dataset):
+    def __init__(self, npz_path, time_decay=None):
+        data = np.load(npz_path)
+
+        self.features = torch.tensor(data['features'], dtype=torch.float32)
+        self.embeddings = torch.tensor(data['embeddings'], dtype=torch.float32)
+        self.targets = torch.log10(torch.tensor(data['targets'], dtype=torch.float32) + 1)
+
+        self.has_delta_t = 'delta_t' in data.files
+        self.time_decay = time_decay
+
+        if self.has_delta_t:
+            self.delta_t = torch.tensor(data['delta_t'], dtype=torch.float32)
+
+            if self.time_decay is not None:
+                self.weights = torch.exp(-self.time_decay * self.delta_t)
+            else:
+                self.weights = None
+        else:
+            self.delta_t = None
+            self.weights = None
+
+    def __len__(self):
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+        x = torch.cat([self.features[idx], self.embeddings[idx]], dim=0)
+        y = self.targets[idx]
+
+        if self.weights is not None:
+            w = self.weights[idx]
+            return x, y, w
+        else:
+            return x, y
+
+
