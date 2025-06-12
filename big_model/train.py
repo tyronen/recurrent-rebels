@@ -4,21 +4,24 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from utils import load_data, load_embeddings, get_device
 from dataloader import PrecomputedNPZDataset
-from model import BigModel
+from model import FullModel
 import os
 from datetime import datetime
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
+import json
+from torchinfo import summary
 
 # Hyperparameters
 BATCH_SIZE = 64
 EPOCHS = 5
 LEARNING_RATE = 1e-3
-TIME_DECAY = 0.02
+
 DEVICE = get_device()
-TRAIN_FILE = "precomputed_npz/train.npz"
-VAL_FILE = "precomputed_npz/val.npz"
+TRAIN_FILE = "data/train.npz"
+VAL_FILE = "data/val.npz"
+VOCAB_FILE = "data/train_vocab.json"
 
 if __name__ == '__main__':
 
@@ -31,21 +34,43 @@ if __name__ == '__main__':
     # TensorBoard writer
     writer = SummaryWriter(log_dir)
 
-    train_dataset = PrecomputedNPZDataset(TRAIN_FILE, time_decay=TIME_DECAY)
-    val_dataset = PrecomputedNPZDataset(VAL_FILE)
+    # Load vocab sizes from vocab file
+    with open(VOCAB_FILE, 'r') as f:
+        vocabs = json.load(f)
+
+    domain_vocab_size = len(vocabs['domain_vocab'])
+    tld_vocab_size = len(vocabs['tld_vocab'])
+    user_vocab_size = len(vocabs['user_vocab'])
+
+    # Dataset
+    train_dataset = PrecomputedNPZDataset(TRAIN_FILE, time_decay=None)
+    val_dataset = PrecomputedNPZDataset(VAL_FILE, time_decay=None)
 
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     print(f"Dataset sizes - Train: {len(train_dataset)}, Validation: {len(val_dataset)}")
 
-    # Model
-    sample_input, _, _= train_dataset[0]
-    input_dim = sample_input.shape[0]
-    print(f"Input dimension: {input_dim}")
+    sample_batch = train_dataset[0]
+    features_num_sample, title_emb_sample, *_ = sample_batch
+    vector_size_title = title_emb_sample.shape[0]
+    vector_size_num = features_num_sample.shape[0]
 
-    model = BigModel(vector_size=input_dim, scale=3).to(DEVICE)
-    print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+    model = FullModel(vector_size_num=vector_size_num,
+                    vector_size_title=vector_size_title,
+                    scale=3,
+                    domain_vocab_size=domain_vocab_size,
+                    tld_vocab_size=tld_vocab_size,
+                    user_vocab_size=user_vocab_size).to(DEVICE)
+
+    # Generate a summary
+    summary(model, input_data=(
+        torch.randn(1, vector_size_num).to(DEVICE),
+        torch.randn(1, vector_size_title).to(DEVICE),
+        torch.randint(0, domain_vocab_size, (1,)).to(DEVICE),
+        torch.randint(0, tld_vocab_size, (1,)).to(DEVICE),
+        torch.randint(0, user_vocab_size, (1,)).to(DEVICE),
+    ))
 
     # Loss and optimizer
     criterion = nn.MSELoss()
@@ -54,29 +79,24 @@ if __name__ == '__main__':
 
     # Training loop
     for epoch in range(1, EPOCHS+1):
-        # Training phase
-        model.train()        
-        progress_bar = tqdm(enumerate(train_dataloader, 1), total=len(train_dataloader), desc=f"Epoch {epoch}", unit="batch", dynamic_ncols=True)
-
+        model.train()
         train_loss = 0
         train_steps = 0
 
-        for step, (batch_x, batch_y, batch_w) in progress_bar:
+        progress_bar = tqdm(train_dataloader, total=len(train_dataloader),
+                             desc=f"Epoch {epoch} [Train]", unit="batch", dynamic_ncols=True)
 
-            batch_x = batch_x.to(DEVICE)
-            batch_y = batch_y.to(DEVICE).unsqueeze(1)
-            batch_w = batch_w.to(DEVICE).unsqueeze(1)
-
+        for batch in progress_bar:
+            
+            features_num, title_emb, domain_idx, tld_idx, user_idx, target = [b.to(DEVICE) for b in batch]
             optimizer.zero_grad()
-            outputs = model(batch_x)
+            output = model(features_num, title_emb, domain_idx, tld_idx, user_idx)
+            loss = criterion(output, target.unsqueeze(1)).mean()
 
-            losses = criterion(outputs, batch_y)
-            weighted_loss = (losses * batch_w).mean()
-            weighted_loss.backward()
-
+            loss.backward()
             optimizer.step()
 
-            train_loss += weighted_loss.item()
+            train_loss += loss.item()
             train_steps += 1
             progress_bar.update()
 
@@ -89,42 +109,57 @@ if __name__ == '__main__':
         predictions = []
         targets = []
 
-        # todo: remove stopwords from the embeddings
-        
+        val_progress = tqdm(val_dataloader, total=len(val_dataloader),
+                             desc=f"Epoch {epoch} [Val]", unit="batch", dynamic_ncols=True)
+
         with torch.no_grad():
-            for batch_x, batch_y in val_dataloader:
-                batch_x, batch_y = batch_x.to(DEVICE), batch_y.to(DEVICE).unsqueeze(1)
-                outputs = model(batch_x)
-                loss = criterion(outputs, batch_y)
+            for batch in val_progress:
+                features_num, title_emb, domain_idx, tld_idx, user_idx, target = [b.to(DEVICE) for b in batch]
+
+                output = model(features_num, title_emb, domain_idx, tld_idx, user_idx)
+                loss = criterion(output, target.unsqueeze(1)).mean()
+
                 val_loss += loss.item()
                 val_steps += 1
-                
-                # Collect predictions for analysis
-                predictions.extend(outputs.cpu().numpy().flatten())
-                targets.extend(batch_y.cpu().numpy().flatten())
+
+                predictions.extend(output.cpu().numpy().flatten())
+                targets.extend(target.cpu().numpy().flatten())
 
         avg_val_loss = val_loss / val_steps
-    
-        print(f'Training LOSS: Alpha {avg_train_loss}\n'
-          f'Validation LOSS: Alpha {avg_val_loss} \n')
-                
-        # Calculate additional metrics
         mae = np.mean(np.abs(np.array(predictions) - np.array(targets)))
-        
+    
+        # Convert to numpy arrays
+        predictions = np.array(predictions)
+        targets = np.array(targets)
+
+        # R² on log scale
+        ss_res_log = np.sum((targets - predictions) ** 2)
+        ss_tot_log = np.sum((targets - np.mean(targets)) ** 2)
+        r2_log = 1 - ss_res_log / ss_tot_log
+
+        # R² on real scale (inverse transform)
+        predictions_real = 10**predictions - 1
+        targets_real = 10**targets - 1
+
+        ss_res_real = np.sum((targets_real - predictions_real) ** 2)
+        ss_tot_real = np.sum((targets_real - np.mean(targets_real)) ** 2)
+        r2_real = 1 - ss_res_real / ss_tot_real
+
+        # Write to TensorBoard
+        writer.add_scalar("Metrics/R2_log", r2_log, epoch)
+        writer.add_scalar("Metrics/R2_real", r2_real, epoch)
         writer.add_scalar("Loss/Train_Epoch", avg_train_loss, epoch)
         writer.add_scalar("Loss/Val_Epoch", avg_val_loss, epoch)
         writer.add_scalar("Metrics/MAE", mae, epoch)
-        
-        print(f"✓ Epoch {epoch} complete. Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+
+        print(f"✓ Epoch {epoch} complete. Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, MAE: {mae:.4f}, R2 real: {r2_real:.4f}, R2 log: {r2_log:.4f}")
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             model_path = os.path.join(model_dir, f'best_model_{epoch}.pth')
             torch.save({
                 'model_state_dict': model.state_dict(),
-                'input_dim': input_dim
             }, model_path)
             print(f"✓ Saved new best model at epoch {epoch} with val loss {avg_val_loss:.4f}")
-    
-    writer.close()
 
+    writer.close()
