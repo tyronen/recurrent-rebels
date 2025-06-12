@@ -54,7 +54,9 @@ class PostDataset(Dataset):
         self.w2i_dict = w2i_dict
         
         # Select feature columns
-        self.feature_cols = [col for col in dataframe.columns if col not in ['title', 'score']]
+        print(dataframe.dtypes)
+        self.feature_cols = [col for col in dataframe.columns if col not in ['title', 'score', 'url']]
+
 
     def __len__(self):
         return len(self.df)

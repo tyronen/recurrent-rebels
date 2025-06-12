@@ -6,19 +6,28 @@ MLX Institute, Recurrent Rebels group
 
 Install requirements: Run `pip install -r requirements.txt`
 
-## 1. Exploratory Data Analysis (EDA)
+## Inference
+Model inference: To predict a score for an HN post, provide a dict with (at least) the following fields:
+- `by: str` -- username of the author
+- `title: str` -- title of the post
+- `url: str` -- domain associated to the post
+- `time: int` -- time in [UNIX TIME](https://en.wikipedia.org/wiki/Unix_time)
 
-a. look for cues
+Then run ... for inference.
 
-- Rasched/Nick, exploring for features in SQL/Pandas
+For more information, see https://github.com/HackerNews/API
 
-# 🔎 Feature Brainstorming for Hacker News Upvote Prediction
+## FastAPI and Streamlit
+Start the app: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
 
-## App
-    Startup: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
-    To run prediction on HN post with given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
-    E.g.: `http://127.0.0.1:8000/predict_hn/130`
-    TODO: This is currently loading a dummy model.
+To run a prediction on HN post with a given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
+(e.g. `http://127.0.0.1:8000/predict_hn/130`)
+
+WARNING: This is currently loading a dummy model.
+
+To interact with a graphical interface, start the streamlit app:
+`streamlit run streamlit_app.py`
+and open it in your browser (this needs to run parallel to the FastAPI). Have fun!
 
 ## ✅ User Features
 
@@ -27,28 +36,28 @@ a. look for cues
 - Max upvotes per post  ✅
 - Min upvotes per post  ✅
 - Mean upvotes per post  ✅
-- Posts per year
-- Descendants (total number of comments under the post)  
-- Deepest sub comment level  
-- Number of comments / sub comments  
+- Posts per year ✅
+- Descendants (total number of comments under the post) ✅  
+- Deepest sub comment level  ✅
+- Number of comments / sub comments ✅ 
 - Mean number of comments per post  ✅
-- Total number of comments  
+- Total number of comments  ✅
 - Account age (time they have been a user)  ✅
-- Average number of people engaging on their post (same as average comments per post?)
+- Average number of people engaging on their post (same as average comments per post?) ✅
 
 ## 🕒 Temporal Features
 
-- Post time of day (hour bucket: morning, afternoon, evening, night)
+- Post time of day (hour bucket: morning, afternoon, evening, night) 
 - Post weekday/weekend indicator
-- Account age at post time (how old the account was when posting)
+- Account age at post time (how old the account was when posting) ✅
 - Post within first N minutes of daily HN activity cycle
-- Days since previous post
+- Days since previous post ✅
 
 ## 🔄 User Interaction Diversity
 
-- Number of distinct people commenting on user’s posts
-- Number of unique threads user participated in (non-own posts)
-- Fraction of posts that got at least 1 upvote (success rate)
+- Number of distinct people commenting on user’s posts ✅
+- Number of unique threads user participated in (non-own posts) ✅
+- Fraction of posts that got at least 1 upvote (success rate) ✅
 
 ## 📝 Post Content Features
 
@@ -74,11 +83,11 @@ a. look for cues
 
 ## ⚡ Meta Engagement Features
 
-- Average time to first comment
-- Time to 10 comments (velocity indicator)
-- Fraction of posts receiving moderator flag
-- Upvote velocity (upvotes per minute/hour after posting)
-- Time taken to hit score thresholds (10, 50, 100 upvotes)
+- Average time to first comment ✅
+- Time to 10 comments (velocity indicator) ✅
+- Fraction of posts receiving moderator flag ✅
+- Upvote velocity (upvotes per minute/hour after posting) ❌ (don't have voting times)
+- Time taken to hit score thresholds (10, 50, 100 upvotes) ❌ (don't have voting times)
 
 ## 💡 Additional Advanced Features
 

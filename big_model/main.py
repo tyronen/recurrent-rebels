@@ -15,8 +15,8 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 parser = argparse.ArgumentParser(description="Train the master NN.")
-parser.add_argument('--items', default="data/items.parquet", help='Items data frame')
-parser.add_argument('--users', default="data/users.parquet", help='Users data frame')
+parser.add_argument('--items', default="data/posts.parquet", help='Items data frame')
+parser.add_argument('--users', default="data/users.parquet", help='Ignored')
 parser.add_argument('--embeddings', default="skipgram_models/silvery200.pt", help='Word2Vec embeddings')
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
 parser.add_argument("--epochs", type=int, default=10, help="Epochs")
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     global_step = 0
 
     # Prepare data
-    df = load_data(args.items, args.users)
+    df = load_data(args.items)
     w2i, embedding_matrix = load_embeddings(args.embeddings)
 
     dataset = PostDataset(df, embedding_matrix, w2i)
