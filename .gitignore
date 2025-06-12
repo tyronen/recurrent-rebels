@@ -7,6 +7,7 @@ runs/
 
 .idea/
 wandb/
+data/
 
 # C extensions
 *.so
