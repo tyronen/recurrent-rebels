@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import requests
 import datetime
@@ -5,7 +6,7 @@ import datetime
 from utils.hn_api import get_item, fetch_random_recent_story
 
 # --- Configuration ---
-FASTAPI_URL = "http://127.0.0.1:8000"
+FASTAPI_URL = os.getenv("FASTAPI_URL", "http://127.0.0.1:8000")
 
 # --- Initialize Session State ---
 if 'by' not in st.session_state:

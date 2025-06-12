@@ -1,0 +1,24 @@
+# Use an official Python runtime as a parent image
+FROM python:3.11-slim
+
+# Set the working directory in the container
+WORKDIR /code
+
+# Copy the requirements file into the container at /code
+COPY ./requirements.txt /code/requirements.txt
+
+# Install any needed packages specified in requirements.txt
+# We also install streamlit here
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt && pip install streamlit
+
+# Copy the Streamlit app and utility files into the container
+COPY ./streamlit_app.py /code/streamlit_app.py
+COPY ./utils /code/utils
+
+# Expose port 8501 for the Streamlit app
+EXPOSE 8501
+
+# Command to run the streamlit app
+# --server.address=0.0.0.0 makes it accessible from outside the container
+# --server.enableCORS=false is often needed for Docker setups
+CMD ["streamlit", "run", "streamlit_app.py", "--server.address=0.0.0.0", "--server.enableCORS=false"]
