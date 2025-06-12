@@ -6,18 +6,23 @@ MLX Institute, Recurrent Rebels group
 
 Install requirements: Run `pip install -r requirements.txt`
 
-## 1. Exploratory Data Analysis (EDA)
+## Inference
+Model inference: To predict a score for an HN post, provide a dict with (at least) the following fields:
+`by: str` -- username of the author
+`title: str` -- title of the post
+`url: str` -- domain associated to the post
+`time: int` -- time in [UNIX TIME](https://en.wikipedia.org/wiki/Unix_time)
 
-a. look for cues
+Then run ... for inference.
 
-- Rasched/Nick, exploring for features in SQL/Pandas
-
-# 🔎 Feature Brainstorming for Hacker News Upvote Prediction
+For more information, see https://github.com/HackerNews/API
 
 ## App
-Startup: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
-To run prediction on HN post with given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
-E.g.: `http://127.0.0.1:8000/predict_hn/130`
+Start the app: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
+
+To run a prediction on HN post with a given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
+(e.g. `http://127.0.0.1:8000/predict_hn/130`)
+
 WARNING: This is currently loading a dummy model.
 
 ## ✅ User Features
