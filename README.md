@@ -8,10 +8,10 @@ Install requirements: Run `pip install -r requirements.txt`
 
 ## Inference
 Model inference: To predict a score for an HN post, provide a dict with (at least) the following fields:
-`by: str` -- username of the author
-`title: str` -- title of the post
-`url: str` -- domain associated to the post
-`time: int` -- time in [UNIX TIME](https://en.wikipedia.org/wiki/Unix_time)
+- `by: str` -- username of the author
+- `title: str` -- title of the post
+- `url: str` -- domain associated to the post
+- `time: int` -- time in [UNIX TIME](https://en.wikipedia.org/wiki/Unix_time)
 
 Then run ... for inference.
 
