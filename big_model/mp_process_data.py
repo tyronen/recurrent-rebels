@@ -99,7 +99,7 @@ def precompute_parallel(df, embedding_matrix, w2i_dict, Tmin=None, Tmax=None, re
 if __name__ == '__main__':
     EMBEDDING_FILE = "skipgram_models/silvery200.pt"
     FILEPATH = "data/posts.parquet"
-    OUTPUT_DIR = "data"
+    OUTPUT_DIR = "precomputed_npz"
     NUM_WORKERS = 20
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)

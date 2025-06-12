@@ -8,6 +8,7 @@ runs/
 .idea/
 wandb/
 data/
+precomputed_npz/
 
 # C extensions
 *.so
