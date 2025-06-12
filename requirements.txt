@@ -9,6 +9,9 @@ uvicorn>=0.24.0
 pandas>=1.5.0
 numpy>=1.21.0
 
+# HTTP Client
+httpx>=0.28.0
+
 # Database
 sqlalchemy>=1.4.0
 psycopg2-binary>=2.9.0
@@ -16,7 +19,7 @@ psycopg2-binary>=2.9.0
 # Data Visualization
 matplotlib>=3.5.0
 seaborn>=0.11.0
-wordcloud>=1.9.2
+wordcloud>=1.9.0
 
 # Machine Learning
 scikit-learn>=1.1.0
@@ -25,7 +28,7 @@ scikit-learn>=1.1.0
 tqdm>=4.64.0
 
 # Hugging Face Integration
-huggingface_hub>=0.10.1
+huggingface_hub>=0.10.0
 
 # Jupyter Notebook Support
 jupyter>=1.0.0
