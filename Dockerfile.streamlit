@@ -4,12 +4,11 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /code
 
-# Copy the requirements file into the container at /code
-COPY ./requirements.txt /code/requirements.txt
+# Copy the streamlit production requirements file into the container at /code
+COPY ./requirements.streamlit.prod.txt /code/requirements.streamlit.prod.txt
 
-# Install any needed packages specified in requirements.txt
-# We also install streamlit here
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt && pip install streamlit
+# Install streamlit production dependencies (minimal set)
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.streamlit.prod.txt
 
 # Copy the Streamlit app and utility files into the container
 COPY ./streamlit_app.py /code/streamlit_app.py
