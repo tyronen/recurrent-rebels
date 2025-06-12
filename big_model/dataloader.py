@@ -1,8 +1,23 @@
+from urllib.parse import urlparse
 import torch
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
 from utils import log_transform_plus1, time_transform
+import tldextract
+
+def extract_domain_tld(url_text: str):
+    """
+    Return (domain, tld) using the PSL via tldextract.
+    Example: 'https://sub.example.co.uk/page'
+             → ('sub.example', 'co.uk')
+    """
+    ext = tldextract.extract(url_text.lower())
+    if not ext.domain:          # no hostname in the URL
+        return '', ''
+    domain = '.'.join(label for label in (ext.subdomain, ext.domain) if label)
+    tld    = ext.suffix         # 'co.uk', 'com', 'dev', etc.
+    return domain, tld
 
 
 def extract_features(data, no_of_features=9):

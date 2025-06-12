@@ -1,6 +1,7 @@
 # recurrent-rebels
 
-MLX Institute, Recurrent Rebels group
+MLX Institute, Recurrent Rebels group.
+Try me out here: http://91.99.96.27:8501/
 
 ## How to run this project
 
