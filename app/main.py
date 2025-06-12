@@ -16,12 +16,19 @@ model.load_state_dict(torch.load(MODEL_PATH))
 model.eval()
 
 #Define the request and response pydantic models
-class PredictionRequest(BaseModel):
-    #Change to fit the model requirements
-    input_data: dict
+
+
+class HNPostData(BaseModel):
+    by: str
+    title: str
+    url: str
+    time: int
+    score: int | None = None 
+    #add more if helpful
 
 class PredictionResponse(BaseModel):
     prediction: float
+
 
 def preprocess_input(data: dict) -> list[float]:
     #TODO: Implement the preprocessing logic 
@@ -42,10 +49,10 @@ async def get_hn_item(item_id: int) -> dict:
     return item_data
 
 #Define the prediction endpoint
-@app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest):
+@app.post("/predict/direct", response_model=PredictionResponse)
+async def predict_direct(request: HNPostData):
     #Preprocess the input data (match to model requirements)
-    input_data = preprocess_input(request.input_data) 
+    input_data = preprocess_input(request.model_dump()) 
 
     #Make a prediction
     with torch.no_grad():
@@ -57,7 +64,7 @@ async def predict(request: PredictionRequest):
     return PredictionResponse(prediction=prediction.item())
 
 @app.get("/predict_hn/{item_id}", response_model=PredictionResponse)
-async def predict_from_hackernews(item_id: int):
+async def predict_from_id(item_id: int):
     """
     Fetches a Hacker News item, preprocesses it, and returns a model prediction.
     """
