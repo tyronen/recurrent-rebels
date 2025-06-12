@@ -43,3 +43,6 @@ flake8>=5.0.0
 
 # URL handling
 tldextract>=5.0.0
+
+# Hyperparameter tuning
+optuna>=4.0.0

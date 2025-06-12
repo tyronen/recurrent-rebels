@@ -90,8 +90,7 @@ if __name__ == '__main__':
         predictions = []
         targets = []
 
-        # we also need to fix the length submitted one, why is it 0, add more features 
-        # remove stopwords from the embeddings 
+        # todo: remove stopwords from the embeddings
         
         with torch.no_grad():
             for batch_x, batch_y in val_dataloader:
