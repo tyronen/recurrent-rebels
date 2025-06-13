@@ -100,7 +100,7 @@ def process_row(row):
 
     tokens = tokenize_title(row['title'])
     emb = embed_title(tokens)
-    target = np.clip(row['score'], 0, None)
+    target = np.clip(row['score'], 0, 500)
 
     return {
         "features_num": feats,

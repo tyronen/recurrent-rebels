@@ -70,6 +70,7 @@ class Predictor:
             # New user - all zeros
             row = {col: 0 for col in self.columns}
 
+        row.pop('id', None)
         row['by'] = data['by']
         row['title'] = data['title']
         row['url'] = data['url']
@@ -78,21 +79,24 @@ class Predictor:
 
     def predict(self, input_data: dict) -> float:
         features_vec = self.preprocess_input(input_data)
+        print(features_vec)
         data = utils.process_row(features_vec)
-        features_num = torch.tensor(data['features_num'], dtype=torch.float32)
+        features_num = torch.tensor(data['features_num'], dtype=torch.float32).unsqueeze(0)
         # Load title embeddings (precomputed)
-        title_embeddings = torch.tensor(data['embedding'], dtype=torch.float32)
+        title_embeddings = torch.tensor(data['embedding'], dtype=torch.float32).unsqueeze(0)
 
         # Load categorical indices
-        domain_indices = torch.tensor(data['domain_idx'], dtype=torch.long)
-        tld_indices = torch.tensor(data['tld_idx'], dtype=torch.long)
-        user_indices = torch.tensor(data['user_idx'], dtype=torch.long)
+        domain_indices = torch.tensor([data['domain_idx']], dtype=torch.long)
+        tld_indices = torch.tensor([data['tld_idx']], dtype=torch.long)
+        user_indices = torch.tensor([data['user_idx']], dtype=torch.long)
 
         #May need to modify if model is not preprocessed
         with torch.no_grad():
-            prediction = 10 ** self.model(features_num, title_embeddings, domain_indices, tld_indices, user_indices) - 1
+            raw_prediction = self.model(features_num, title_embeddings, domain_indices, tld_indices, user_indices)
+            prediction = 10 ** raw_prediction.item() - 1
+            print(f"Final prediction: {prediction}")
 
-        return prediction.item()
+        return prediction
 
 def get_predictor(model_path: str):
     model = load_full_model(model_path)
