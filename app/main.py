@@ -6,7 +6,7 @@ import os
 
 from utils.model_handler import get_predictor
 
-MODEL_PATH = os.getenv("MODEL_PATH", "models/20250612_234603/best_model_3.pth")
+MODEL_PATH = os.getenv("MODEL_PATH", "models/20250613_130611/best_model_5.pth")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
