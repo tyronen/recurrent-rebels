@@ -2,8 +2,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
 import logging
+import os
 
 from utils.model_handler import get_predictor
+
+MODEL_PATH = os.getenv("MODEL_PATH", "models/20250612_234603/best_model_3.pth")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
@@ -13,9 +16,7 @@ app = FastAPI()
 HN_API_BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
 #Initialize the model -- change as desired
-MODEL_NAME = "full_model"
-predictor = get_predictor(MODEL_NAME)
-
+predictor = get_predictor(MODEL_PATH)
 
 #Define the request and response pydantic models
 class HNPostData(BaseModel):

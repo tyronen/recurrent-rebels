@@ -4,11 +4,9 @@ import torch
 
 from big_model.inference_preprocess import CACHE_FILE
 from big_model.model import FullModel
-from big_model.single_inference import prepare_features
 from big_model import utils
 import json
 import logging
-import pandas as pd
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
@@ -30,8 +28,7 @@ def load_user_data():
 
 
 def get_full_model_preprocessor():
-    """Create a preprocessor function with loaded dependencies"""
-    # Load necessary data
+    """Load necessary data"""
     w2i, embedding_matrix = utils.load_embeddings("skipgram_models/silvery200.pt")
     utils.global_w2i = w2i
     utils.global_embedding_matrix = embedding_matrix
@@ -97,11 +94,7 @@ class Predictor:
 
         return prediction.item()
 
-def get_predictor(model_name: str):
-    match model_name:
-        case "full_model":
-            model = load_full_model("models/20250612_234603/best_model_3.pth")
-            get_full_model_preprocessor()
-            return Predictor(model)
-        case _:
-            raise ValueError(f"Model {model_name} not found")
+def get_predictor(model_path: str):
+    model = load_full_model(model_path)
+    get_full_model_preprocessor()
+    return Predictor(model)

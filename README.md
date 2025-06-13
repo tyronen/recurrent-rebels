@@ -58,6 +58,8 @@ For more information, see https://github.com/HackerNews/API
 ## FastAPI and Streamlit
 You must create an inference cache first: `python big_model/inference_preprocess.py`.
 
+Specify the path to your model in the `MODEL_PATH` environment variable.
+
 Start the app: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
 
 To run a prediction on HN post with a given `id`: Call `http://127.0.0.1:8000/predict_hn/{id}`
