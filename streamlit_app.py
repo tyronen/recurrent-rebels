@@ -9,6 +9,8 @@ from utils.hn_api import get_item, fetch_random_recent_story
 FASTAPI_URL = os.getenv("FASTAPI_URL", "http://127.0.0.1:8000")
 
 # --- Initialize Session State ---
+if 'id' not in st.session_state:
+    st.session_state.id = 40646061
 if 'by' not in st.session_state:
     st.session_state.by = "testuser"
 if 'title' not in st.session_state:
@@ -34,7 +36,7 @@ st.write("Enter an ID or fetch a random recent post to populate the fields below
 st.subheader("Fetch by ID")
 col1, col2 = st.columns([3, 2])
 with col1:
-    item_id_input = st.number_input("Hacker News Post ID", min_value=1, value=40646061, step=1, label_visibility="collapsed")
+    item_id_input = st.number_input("Hacker News Post ID", min_value=1, value=st.session_state['id'], step=1, label_visibility="collapsed")
 with col2:
     if st.button("Fetch and Populate"):
         with st.spinner(f"Fetching data for item {item_id_input}..."):
@@ -57,6 +59,7 @@ if st.button("Fetch and Populate Random"):
     with st.spinner("Searching for a random recent story..."):
         item_data = fetch_random_recent_story()
         if item_data:
+            st.session_state.id = item_data.get("id")
             st.session_state.by = item_data.get("by", "")
             st.session_state.title = item_data.get("title", "")
             st.session_state.url = item_data.get("url", "")
@@ -73,7 +76,7 @@ if st.session_state.score is not None:
     st.write("---")
     metric_col1, metric_col2 = st.columns(2)
     with metric_col1:
-        st.metric("Current Score", st.session_state.score)
+        st.metric("Actual Score", st.session_state.score)
     with metric_col2:
         st.metric("Comments", st.session_state.comments)
 

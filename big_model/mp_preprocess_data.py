@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-import big_model.utils
 import utils
 from tqdm import tqdm
 import multiprocessing as mp
@@ -15,8 +14,8 @@ UNK_TOKEN = '<unk>'
 
 
 def init_worker(embedding_matrix, w2i_dict, Tmin, Tmax, domain_vocab, tld_vocab, user_vocab):
-    big_model.utils.global_embedding_matrix = torch.as_tensor(embedding_matrix).clone().detach()
-    big_model.utils.global_w2i = w2i_dict
+    utils.global_embedding_matrix = torch.as_tensor(embedding_matrix).clone().detach()
+    utils.global_w2i = w2i_dict
     utils.global_Tmin = Tmin
     utils.global_Tmax = Tmax
     utils.global_domain_vocab = domain_vocab
