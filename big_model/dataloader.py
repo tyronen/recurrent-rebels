@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
-from utils import log_transform_plus1, time_transform
+from big_model.utils import log_transform_plus1, time_transform
 
 class PrecomputedNPZDataset(Dataset):
     def __init__(self, npz_path, time_decay=None):
