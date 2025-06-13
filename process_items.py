@@ -164,8 +164,8 @@ def main(items_file, posts_file):
     stories_df["num_comments"]      = story_ids.map(comment_counts).fillna(0).astype(int)
     stories_df["post_commenters"]   = story_ids.map(distinct_commenter_counts).fillna(0).astype(int)
     stories_df["depth"]             = story_ids.map(depth_dict).fillna(0).astype(int)
-    stories_df["first_comment_delay"]  = story_ids.map(first_comment_delta).fillna(0)
-    stories_df["tenth_comment_delay"]  = story_ids.map(tenth_comment_delta).fillna(0)
+    stories_df["first_comment_delay"]  = story_ids.map(first_comment_delta).fillna(-1)
+    stories_df["tenth_comment_delay"]  = story_ids.map(tenth_comment_delta).fillna(-1)
     stories_df["score_above_1"]        = (stories_df["score"] > 1).astype(int)
 
     logging.info("Elapsed time stats")
