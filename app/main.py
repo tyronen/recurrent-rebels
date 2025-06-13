@@ -1,10 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
-import torch
-import pandas as pd
-
-from big_model import utils
 import logging
 
 from utils.model_handler import get_predictor
@@ -47,14 +43,18 @@ async def get_hn_item(item_id: int) -> dict:
         raise HTTPException(status_code=503, detail=f"Error requesting Hacker News API: {e}")
     return item_data
 
+def make_prediction(input_data):
+    prediction = predictor.predict(input_data)
+    return PredictionResponse(prediction=prediction)
+
+
 #Define the prediction endpoint
 @app.post("/predict/direct", response_model=PredictionResponse)
 async def predict_direct(request: HNPostData):
-    #Preprocess the input data (match to model requirements)
-    input_data = request.model_dump()
+    return make_prediction(request.model_dump())
 
-    #Postprocess the prediction (take exp if needed)
-    prediction = predictor.predict(input_data)
 
-    return PredictionResponse(prediction=prediction)
-
+@app.get("/predict_hn/{item_id}", response_model=PredictionResponse)
+async def predict_from_id(item_id: int):
+    item_data = await get_hn_item(item_id)
+    return make_prediction(item_data)

@@ -48,3 +48,8 @@ tldextract>=5.0.0
 
 # Hyperparameter tuning
 optuna>=4.0.0
+
+# Inference
+pydantic>=2.11.5
+requests>=2.32.3
+streamlit>=1.45.1
