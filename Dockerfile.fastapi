@@ -19,6 +19,7 @@ COPY ./utils /code/utils
 COPY ./big_model /code/big_model
 COPY ./data/train_vocab.json /code/data/
 COPY ./skipgram_models/silvery200.pt /code/skipgram_models/
+COPY ./models /code/models
 
 # Expose port 8000 to allow communication to/from server
 EXPOSE 8000
