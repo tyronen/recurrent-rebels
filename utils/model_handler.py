@@ -91,12 +91,56 @@ class Predictor:
         user_indices = torch.tensor([data['user_idx']], dtype=torch.long)
 
         #May need to modify if model is not preprocessed
+        self.model.eval()
         with torch.no_grad():
             raw_prediction = self.model(features_num, title_embeddings, domain_indices, tld_indices, user_indices)
             prediction = 10 ** raw_prediction.item() - 1
-            print(f"Final prediction: {prediction}")
+        self.analyze_feature_importance(data)
+        print(f"Final prediction: {prediction}")
 
         return prediction
+
+    def analyze_feature_importance(self, data, top_k=10):
+        features_num = torch.tensor(data['features_num'], dtype=torch.float32, requires_grad=True).unsqueeze(0)
+        # Load title embeddings (precomputed)
+        title_embeddings = torch.tensor(data['embedding'], dtype=torch.float32, requires_grad=True).unsqueeze(0)
+
+        # Load categorical indices
+        domain_indices = torch.tensor([data['domain_idx']], dtype=torch.long)
+        tld_indices = torch.tensor([data['tld_idx']], dtype=torch.long)
+        user_indices = torch.tensor([data['user_idx']], dtype=torch.long)
+        # Clear any existing gradients
+        if features_num.grad is not None:
+            features_num.grad.zero_()
+        if title_embeddings.grad is not None:
+            title_embeddings.grad.zero_()
+
+        features_num.retain_grad()
+        title_embeddings.retain_grad()
+
+        self.model.eval()
+
+        # Forward pass WITH gradient computation
+        raw_prediction = self.model(features_num, title_embeddings, domain_indices, tld_indices, user_indices)
+
+        # Backward pass
+        raw_prediction.backward()
+
+        # Check gradients exist
+        if features_num.grad is not None and title_embeddings.grad is not None:
+            num_importance = torch.abs(features_num.grad).squeeze().numpy()
+            title_importance = torch.abs(title_embeddings.grad).squeeze().numpy()
+
+            importance_pairs = list(zip(self.columns[:len(num_importance)], num_importance))
+            importance_pairs.sort(key=lambda x: x[1], reverse=True)
+
+            print(f"Top {top_k} most important features:")
+            for name, importance in importance_pairs[:top_k]:
+                print(f"{name}: {importance:.4f}")
+
+            print(f"\nTitle embedding importance (mean): {title_importance.mean():.4f}")
+        else:
+            print("Failed to compute gradients for feature importance")
 
 def get_predictor(model_path: str):
     model = load_full_model(model_path)

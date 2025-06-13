@@ -9,6 +9,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
 )
 
+DROP_COLS = ["id", "score"]
 def save_user_data():
     """
     Return (columns, user_features, global_Tmin, global_Tmax).
@@ -22,13 +23,14 @@ def save_user_data():
     global_Tmin = posts_df["time"].min()
     global_Tmax = posts_df["time"].max()
 
+    cols = [col for col in posts_df.columns if col not in DROP_COLS]
     user_features = {
-        user: group.iloc[-1].drop(labels=["id"]).to_dict()
+        user: group.iloc[-1].drop(labels=DROP_COLS).to_dict()
         for user, group in posts_df.groupby("by", sort=False)
     }
 
     cache = dict(
-        columns=list(posts_df.columns),
+        columns=cols,
         global_Tmin=global_Tmin,
         global_Tmax=global_Tmax,
         user_features=user_features,

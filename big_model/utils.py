@@ -100,16 +100,17 @@ def process_row(row):
 
     tokens = tokenize_title(row['title'])
     emb = embed_title(tokens)
-    target = np.clip(row['score'], 0, 500)
 
-    return {
+    retval =  {
         "features_num": feats,
         "embedding": emb,
         "domain_idx": domain_idx,
         "tld_idx": tld_idx,
         "user_idx": user_idx,
-        "target": target
     }
+    if 'score' in row:
+        retval['target'] = np.clip(row['score'], 0, 500)
+    return retval
 
 
 def normalize_url(url):
