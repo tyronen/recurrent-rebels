@@ -10,8 +10,12 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/code/app
-      - ./app/model.pth:/code/model.pth
-    # The 'networks' block allows containers to communicate with each other
+      - ./utils:/code/utils
+      - ./big_model:/code/big_model
+      - ./data:/code/data
+      - ./skipgram_models:/code/skipgram_models
+    environment:
+      - PYTHONPATH=/code
     networks:
       - app-network
 
@@ -25,14 +29,13 @@ services:
     volumes:
       - ./streamlit_app.py:/code/streamlit_app.py
       - ./utils:/code/utils
-    # This service depends on the backend starting first
     depends_on:
       - backend
     networks:
       - app-network
-    # We must update the environment variable to point to the backend service name
     environment:
       - FASTAPI_URL=http://backend:8000
+      - PYTHONPATH=/code
 
 networks:
   app-network:

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+from datetime import datetime
 
 def load_data(items_file, users_file):
     raw_items = pd.read_parquet(items_file)
@@ -33,10 +34,12 @@ def log_transform_plus1(x):
     else:
         return np.log10(x+1)
 
-def time_transform(time):
-    timestamp = pd.to_datetime(time)            
-    year = timestamp.year    
+def time_transform(timestamp):
+    if isinstance(timestamp, (int, float)):
+        timestamp = datetime.fromtimestamp(timestamp)
+    
+    year = timestamp.year
     hour_angle = 2 * np.pi * timestamp.hour / 24
-    dow_angle = 2 * np.pi * timestamp.dayofweek / 7
-    day_angle = 2 * np.pi * timestamp.dayofyear / 365
+    dow_angle = 2 * np.pi * timestamp.weekday() / 7  # weekday() returns 0-6 for Monday-Sunday
+    day_angle = 2 * np.pi * (timestamp.timetuple().tm_yday - 1) / 365  # tm_yday is 1-366
     return year, hour_angle, dow_angle, day_angle
