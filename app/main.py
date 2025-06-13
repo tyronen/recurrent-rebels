@@ -6,7 +6,7 @@ import os
 
 from utils.model_handler import get_predictor
 
-MODEL_PATH = os.getenv("MODEL_PATH", "models/20250613_130611/best_model_5.pth")
+MODEL_TYPE = os.getenv("MODEL_TYPE", "double")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
@@ -16,7 +16,7 @@ app = FastAPI()
 HN_API_BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
 #Initialize the model -- change as desired
-predictor = get_predictor(MODEL_PATH)
+predictor = get_predictor(MODEL_TYPE)
 
 #Define the request and response pydantic models
 class HNPostData(BaseModel):

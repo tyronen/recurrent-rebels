@@ -7,6 +7,13 @@ from big_model.model import FullModel
 from big_model import utils
 import json
 import logging
+import os
+from double_model.model import QuantileRegressionModel, ClassifierModel
+
+FULL_MODEL_PATH = os.getenv("FULL_MODEL_PATH", "models/20250613_130611/best_model_5.pth")
+CLASSIFIER_PATH = os.getenv("CLASSIFIER_MODEL_PATH", "models/20250613_130611/best_model_1.pth")
+REGRESSOR_PATH = os.getenv("REGRESSION_MODEL_PATH", "models/20250613_130611/best_model_2.pth")
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
@@ -40,12 +47,12 @@ def get_full_model_preprocessor():
     utils.global_tld_vocab = vocabs['tld_vocab']
     utils.global_user_vocab = vocabs['user_vocab']
 
-def load_full_model(model_path: str) -> FullModel:
+def load_full_model() -> FullModel:
     """Load a FullModel from checkpoint"""
     device = utils.get_device()
 
     # Create model with correct parameters
-    checkpoint = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(FULL_MODEL_PATH, map_location=device)
     config = checkpoint["config"]
     model = FullModel(**config)
 
@@ -56,9 +63,24 @@ def load_full_model(model_path: str) -> FullModel:
     return model
 
 
-class Predictor:
-    def __init__(self, model):
-        self.model = model
+def load_double_model() -> tuple[ClassifierModel, QuantileRegressionModel]:
+    """Load a FullModel from checkpoint"""
+    device = utils.get_device()
+    classifier_ckpt = torch.load(CLASSIFIER_PATH)
+    regressor_ckpt = torch.load(REGRESSOR_PATH)
+    classifier_config = classifier_ckpt["config"]
+    regressor_config = regressor_ckpt["config"]
+    classifier = ClassifierModel(**classifier_config)
+    regressor = QuantileRegressionModel(**regressor_config)
+    classifier.load_state_dict(classifier_ckpt['model_state_dict'])
+    regressor.load_state_dict(regressor_ckpt['model_state_dict'])
+    classifier.eval()
+    regressor.eval()
+    return classifier, regressor
+
+
+class BasePredictor:
+    def __init__(self):
         self.columns, self.user_features = load_user_data()
 
     def preprocess_input(self, data: dict) -> list[float]:
@@ -77,7 +99,7 @@ class Predictor:
         row['time'] = data['time']
         return row
 
-    def predict(self, input_data: dict) -> float:
+    def get_tensors(self, input_data:dict):
         features_vec = self.preprocess_input(input_data)
         print(features_vec)
         data = utils.process_row(features_vec)
@@ -89,13 +111,21 @@ class Predictor:
         domain_indices = torch.tensor([data['domain_idx']], dtype=torch.long)
         tld_indices = torch.tensor([data['tld_idx']], dtype=torch.long)
         user_indices = torch.tensor([data['user_idx']], dtype=torch.long)
+        return features_num, title_embeddings, domain_indices, tld_indices, user_indices
 
+class FullModelPredictor(BasePredictor):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def predict(self, input_data: dict) -> float:
+        inputs = self.get_tensors(input_data)
         #May need to modify if model is not preprocessed
         self.model.eval()
         with torch.no_grad():
-            raw_prediction = self.model(features_num, title_embeddings, domain_indices, tld_indices, user_indices)
+            raw_prediction = self.model(*inputs)
             prediction = 10 ** raw_prediction.item() - 1
-        self.analyze_feature_importance(data)
+        #self.analyze_feature_importance(data)
         print(f"Final prediction: {prediction}")
 
         return prediction
@@ -142,7 +172,38 @@ class Predictor:
         else:
             print("Failed to compute gradients for feature importance")
 
-def get_predictor(model_path: str):
-    model = load_full_model(model_path)
-    get_full_model_preprocessor()
-    return Predictor(model)
+class DoubleModelPredictor(BasePredictor):
+    def __init__(self, classifier, regressor):
+        super().__init__()
+        self.classifier = classifier
+        self.regressor = regressor
+
+    def predict(self, input_data: dict) -> float:
+        features_num, title_embeddings, domain_indices, tld_indices, user_indices = self.get_tensors(input_data)
+        self.classifier.eval()
+        self.regressor.eval()
+        with torch.no_grad():
+            probs = self.classifier(features_num, title_embeddings, domain_indices, tld_indices, user_indices).squeeze()
+
+            # If classifier predicts non-zero → run regressor
+            if probs.item() <= 0.5:
+                return 1
+            nonzero_mask = True
+
+            features_num_nz = features_num[nonzero_mask]
+            title_emb_nz = title_embeddings[nonzero_mask]
+            domain_idx_nz = domain_indices[nonzero_mask]
+            tld_idx_nz = tld_indices[nonzero_mask]
+            user_idx_nz = user_indices[nonzero_mask]
+
+            reg_output = self.regressor(features_num_nz, title_emb_nz, domain_idx_nz, tld_idx_nz, user_idx_nz)
+            return reg_output[2].item()
+
+
+def get_predictor(model_type: str):
+    if (model_type == "full_model"):
+        model = load_full_model()
+        get_full_model_preprocessor()
+        return FullModelPredictor(model)
+    classifer, regressor = load_double_model()
+    return DoubleModelPredictor(classifer, regressor)
