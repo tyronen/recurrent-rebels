@@ -19,7 +19,7 @@ Then run ... for inference.
 For more information, see https://github.com/HackerNews/API
 
 ## FastAPI and Streamlit
-You must create an inference cache first: `python big_model/inference_preprocess`. This requires the '
+You must create an inference cache first: `python big_model/inference_preprocess.py`. This requires the '
 
 Start the app: `uvicorn app.main:app --reload` to run locally on http://127.0.0.1:8000/
 
