@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from utils import load_data, load_embeddings, get_device
+from utils import get_device
 from dataloader import PrecomputedNPZDataset
 from model import FullModel
 import os
@@ -16,7 +16,7 @@ from torchinfo import summary
 # Hyperparameters
 BATCH_SIZE = 64
 EPOCHS = 5
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-4
 
 DEVICE = get_device()
 TRAIN_FILE = "data/train.npz"
@@ -70,10 +70,18 @@ if __name__ == '__main__':
     ))
 
     # Loss and optimizer
-    criterion = nn.MSELoss()
+    criterion = nn.SmoothL1Loss(beta=5.0)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     best_val_loss = float('inf')
 
+    # In train.py, before training loop:
+    sample_targets = []
+    for i, batch in enumerate(train_dataloader):
+        if i >= 100: break  # Just check first 100 batches
+        sample_targets.extend(batch[-1].numpy())
+
+    print(
+        f"Target distribution: min={min(sample_targets):.3f}, max={max(sample_targets):.3f}, mean={np.mean(sample_targets):.3f}")
     # Training loop
     for epoch in range(1, EPOCHS+1):
         model.train()
@@ -91,6 +99,7 @@ if __name__ == '__main__':
             loss = criterion(output, target.unsqueeze(1)).mean()
 
             loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             train_loss += loss.item()

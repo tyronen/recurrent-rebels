@@ -15,7 +15,7 @@ def get_item(item_id: int) -> dict | None:
 
 def fetch_random_recent_story() -> dict | None:
     """
-    Fetches the list of new stories, picks one randomly from the top 200,
+    Fetches the list of new stories, picks one randomly ,
     and returns its full data.
     """
     try:
@@ -24,8 +24,8 @@ def fetch_random_recent_story() -> dict | None:
         response.raise_for_status()
         new_story_ids = response.json()
 
-        # Search for a valid story within the top 200 most recent items
-        search_slice = new_story_ids[:200]
+        # Search for a valid story
+        search_slice = new_story_ids
         while search_slice:
             # Pick a random ID from our search list
             random_id = random.choice(search_slice)

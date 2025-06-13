@@ -30,6 +30,10 @@ class FullModel(nn.Module):
         self.relu2 = nn.ReLU()
 
         self.linear3 = nn.Linear(scale * total_input_size, 1)
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                nn.init.zeros_(module.bias)
 
     def forward(self, features_num, title_emb, domain_idx, tld_idx, user_idx):
         domain_emb = self.domain_embedding(domain_idx)
