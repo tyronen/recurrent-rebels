@@ -2,40 +2,38 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from utils import load_embeddings, extract_features
+
+import utils
 from tqdm import tqdm
 import multiprocessing as mp
 import json
 from collections import Counter
 import tldextract
 
-# global variables to be shared across workers
+UNK_TOKEN = '<unk>'
+
 global_embedding_matrix = None
 global_w2i = None
-global_Tmin = None
-global_Tmax = None
 global_domain_vocab = None
 global_tld_vocab = None
 global_user_vocab = None
 
-UNK_TOKEN = '<unk>'
-
 def init_worker(embedding_matrix, w2i_dict, Tmin, Tmax, domain_vocab, tld_vocab, user_vocab):
     global global_embedding_matrix
     global global_w2i
-    global global_Tmin
-    global global_Tmax
     global global_domain_vocab
     global global_tld_vocab
     global global_user_vocab
 
     global_embedding_matrix = torch.as_tensor(embedding_matrix).clone().detach()
     global_w2i = w2i_dict
-    global_Tmin = Tmin
-    global_Tmax = Tmax
+    utils.global_Tmin = Tmin
+    utils.global_Tmax = Tmax
     global_domain_vocab = domain_vocab
     global_tld_vocab = tld_vocab
     global_user_vocab = user_vocab
+
+
 
 def build_vocab(values, min_freq=1, topk=None):
     counter = Counter(values)
@@ -72,7 +70,7 @@ def embed_title(token_indices):
 
 def process_row(row):
 
-    feats = extract_features(row)
+    feats = utils.extract_features(row)
     url = normalize_url(row['url'])
     domain = tldextract.extract(url).domain or ''
     tld = tldextract.extract(url).suffix or ''
@@ -128,7 +126,7 @@ if __name__ == '__main__':
     OUTPUT_DIR = "data"
     NUM_WORKERS = 20
 
-    w2i, embedding_matrix = load_embeddings(EMBEDDING_FILE)
+    w2i, embedding_matrix = utils.load_embeddings(EMBEDDING_FILE)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     df = pd.read_parquet(FILEPATH)

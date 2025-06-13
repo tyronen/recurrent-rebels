@@ -4,11 +4,11 @@ import httpx
 import torch
 import pandas as pd
 
-from big_model.utils import extract_features, get_device
+from big_model import utils
 from big_model.model import FullModel
 import logging
 
-MODEL_PATH="big_model/models/20250612_191343/best_model_1.pth"
+MODEL_PATH="models/20250612_234603/best_model_3.pth"
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
@@ -18,7 +18,7 @@ app = FastAPI()
 HN_API_BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
 #Initialize the model -- change as desired
-device = get_device()
+device = utils.get_device()
 checkpoint = torch.load(MODEL_PATH, map_location=device)
 config = checkpoint["config"]
 model_state_dict = checkpoint["model_state_dict"]
@@ -29,14 +29,15 @@ model.eval()
 
 # Load your processed data once at startup
 logging.info("Loading inference data...")
-posts_df = pd.read_parquet("../data/posts.parquet")
+posts_df = pd.read_parquet("data/posts.parquet")
+utils.global_Tmin = posts_df['time'].min()
+utils.global_Tmax = posts_df['time'].max()
 
 # Create a fast lookup structure: user -> their latest features
 user_features = {
-    user: posts_df[posts_df['by'] == user].sort_values('time').iloc[-1][posts_df.columns].to_dict()
-    for user in posts_df['by'].unique()
+    user: group.iloc[-1][posts_df.columns].to_dict()
+    for user, group in posts_df.groupby("by", sort=False)
 }
-
 logging.info(f"Loaded features for {len(user_features)} users")
 
 
@@ -66,10 +67,7 @@ def preprocess_input(data: dict) -> list[float]:
     row['title'] = data['title']
     row['url'] = data['url']
     row['time'] = data['time']
-    features = extract_features(row)
-    prediction = model.predict(features)
-
-    return prediction
+    return utils.extract_features(row)
 
 async def get_hn_item(item_id: int) -> dict:
     try:

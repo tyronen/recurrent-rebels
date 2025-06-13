@@ -41,6 +41,9 @@ def time_transform(time):
     day_angle = 2 * np.pi * timestamp.dayofyear / 365
     return year, hour_angle, dow_angle, day_angle
 
+global global_Tmin
+global global_Tmax
+
 def extract_features(row):
     # Time features
     year, hour_angle, dow_angle, day_angle = time_transform(row['time'])
@@ -67,4 +70,3 @@ def extract_features(row):
 
     all_features = np.array(time_feats + user_feats, dtype=np.float32)
     return all_features
-

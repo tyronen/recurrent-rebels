@@ -58,9 +58,6 @@ if __name__ == '__main__':
         'tld_vocab_size': len(vocabs['tld_vocab']),
         'user_vocab_size' : len(vocabs['user_vocab'])
     }
-    with open(os.path.join(model_dir, 'config.json'), 'w') as f:
-        json.dump(config, f)
-
     model = FullModel(**config).to(DEVICE)
 
     # Generate a summary
