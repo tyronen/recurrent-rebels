@@ -4,7 +4,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 # These imports assume the project root is in PYTHONPATH
 # You can add it by running: export PYTHONPATH=$PYTHONPATH:/path/to/recurrent-rebels
-from big_model.utils import load_embeddings, get_device, time_transform, log_transform_plus1
+from big_model.utils import load_embeddings, extract_features, get_device, time_transform, log_transform_plus1
 from big_model.model import FullModel
 import json
 
@@ -30,7 +30,7 @@ def process_title(title, w2i, embedding_matrix):
     title_embedding = torch.mean(word_embeddings, dim=0)
     return title_embedding
 
-def prepare_features(post_dict, w2i, embedding_matrix, domain_to_idx, tld_to_idx, user_to_idx):
+def prepare_features(post_dict, features_vec, w2i, embedding_matrix, domain_to_idx, tld_to_idx, user_to_idx):
     """Prepare all features for a single post"""
     # Process title
     title_emb = process_title(post_dict['title'], w2i, embedding_matrix)
@@ -46,10 +46,10 @@ def prepare_features(post_dict, w2i, embedding_matrix, domain_to_idx, tld_to_idx
     
     # Get user index
     user_idx = user_to_idx.get(post_dict['by'], 0)  # 0 for unknown
-    
+
     # Create numerical features tensor (empty but with correct shape for concatenation)
-    features_num = torch.zeros((1, 0), dtype=torch.float32)  # Shape: [batch_size=1, features=0]
-    
+    features_num = torch.tensor(features_vec, dtype=torch.float32)  # Shape: [batch_size=1, features=0]
+
     # Reshape title embedding to 2D
     title_emb = title_emb.unsqueeze(0)  # Shape: [batch_size=1, embedding_dim]
     

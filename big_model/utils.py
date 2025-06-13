@@ -1,6 +1,19 @@
 import numpy as np
+import pandas as pd
+import tldextract
 import torch
 from datetime import datetime
+
+TRAINING_VOCAB_PATH = "data/train_vocab.json"
+
+global global_Tmin
+global global_Tmax
+
+global global_domain_vocab
+global global_tld_vocab
+global global_user_vocab
+global global_embedding_matrix
+global global_w2i
 
 def load_data(items_file, users_file):
     raw_items = pd.read_parquet(items_file)
@@ -45,9 +58,6 @@ def time_transform(time):
     day_angle = 2 * np.pi * (timestamp.timetuple().tm_yday - 1) / 365
     return year, hour_angle, dow_angle, day_angle
 
-global global_Tmin
-global global_Tmax
-
 def extract_features(row):
     # Time features
     year, hour_angle, dow_angle, day_angle = time_transform(row['time'])
@@ -74,3 +84,54 @@ def extract_features(row):
 
     all_features = np.array(time_feats + user_feats, dtype=np.float32)
     return all_features
+
+
+def process_row(row):
+
+    feats = extract_features(row)
+    url = normalize_url(row['url'])
+    domain = tldextract.extract(url).domain or ''
+    tld = tldextract.extract(url).suffix or ''
+    user = row['by'] or ''
+
+    domain_idx = global_domain_vocab.get(domain, 0)
+    tld_idx = global_tld_vocab.get(tld, 0)
+    user_idx = global_user_vocab.get(user, 0)
+
+    tokens = tokenize_title(row['title'])
+    emb = embed_title(tokens)
+    target = np.clip(row['score'], 0, None)
+
+    return {
+        "features_num": feats,
+        "embedding": emb,
+        "domain_idx": domain_idx,
+        "tld_idx": tld_idx,
+        "user_idx": user_idx,
+        "target": target
+    }
+
+
+def normalize_url(url):
+    if url is None or not str(url).strip():
+        return 'http://empty'
+    url = str(url).strip()
+    if not url.startswith(('http://', 'https://')):
+        url = 'http://' + url
+    return url
+
+
+def tokenize_title(title_text):
+    tokens = title_text.lower().split()
+    token_indices = [global_w2i.get(token, 0) for token in tokens]
+    return token_indices
+
+
+def embed_title(token_indices):
+    if len(token_indices) == 0:
+        return torch.zeros(global_embedding_matrix.shape[1])
+    token_indices = torch.tensor(token_indices, dtype=torch.long)
+    embedded = global_embedding_matrix[token_indices]
+    avg_embedding = embedded.mean(dim=0)
+    return avg_embedding.numpy()
+

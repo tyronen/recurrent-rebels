@@ -1,70 +1,107 @@
+import pickle
+
 import torch
+
+from big_model.inference_preprocess import CACHE_FILE
 from big_model.model import FullModel
 from big_model.single_inference import prepare_features
-from big_model.utils import load_embeddings, get_device
+from big_model import utils
 import json
+import logging
+import pandas as pd
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
+)
+
+def load_user_data():
+    with open(CACHE_FILE, "rb") as fh:
+        cache = pickle.load(fh)
+
+    # propagate globals so utils.process_row has the right reference frame
+    utils.global_Tmin = cache["global_Tmin"]
+    utils.global_Tmax = cache["global_Tmax"]
+
+    logging.info(
+        f"Loaded inference cache with {len(cache['user_features'])} users "
+        f"from {CACHE_FILE}"
+    )
+    return cache["columns"], cache["user_features"]
 
 
 def get_full_model_preprocessor():
     """Create a preprocessor function with loaded dependencies"""
     # Load necessary data
-    w2i, embedding_matrix = load_embeddings("skipgram_models/silvery200.pt")
-    
+    w2i, embedding_matrix = utils.load_embeddings("skipgram_models/silvery200.pt")
+    utils.global_w2i = w2i
+    utils.global_embedding_matrix = embedding_matrix
     # Load vocab sizes from vocab file
-    with open("data/train_vocab.json", 'r') as f:
+    with open(utils.TRAINING_VOCAB_PATH, 'r') as f:
         vocabs = json.load(f)
     
-    domain_to_idx = vocabs['domain_vocab']
-    tld_to_idx = vocabs['tld_vocab']
-    user_to_idx = vocabs['user_vocab']
-    
-    def preprocess(post_dict):
-        return prepare_features(post_dict, w2i, embedding_matrix, domain_to_idx, tld_to_idx, user_to_idx)
-    
-    return preprocess
+    utils.global_domain_vocab = vocabs['domain_vocab']
+    utils.global_tld_vocab = vocabs['tld_vocab']
+    utils.global_user_vocab = vocabs['user_vocab']
 
 def load_full_model(model_path: str) -> FullModel:
     """Load a FullModel from checkpoint"""
-    device = get_device()
-    
-    # Load vocab sizes from vocab file
-    with open("data/train_vocab.json", 'r') as f:
-        vocabs = json.load(f)
-    
+    device = utils.get_device()
+
     # Create model with correct parameters
-    model = FullModel(
-        vector_size_num=0,  # Set to 0 to match checkpoint dimensions
-        vector_size_title=200,
-        scale=3,
-        domain_vocab_size=len(vocabs['domain_vocab']),
-        tld_vocab_size=len(vocabs['tld_vocab']),
-        user_vocab_size=len(vocabs['user_vocab'])
-    ).to(device)
+    checkpoint = torch.load(model_path, map_location=device)
+    config = checkpoint["config"]
+    model = FullModel(**config)
 
     # Load model weights
-    checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     
     return model
 
+
 class Predictor:
-    def __init__(self, model, preprocessing_fn: callable):
+    def __init__(self, model):
         self.model = model
-        self.preprocessing_fn = preprocessing_fn
+        self.columns, self.user_features = load_user_data()
+
+    def preprocess_input(self, data: dict) -> list[float]:
+        # Get user features from memory (instant lookup)
+        username = data['by']
+        if username in self.user_features:
+            row = self.user_features[username]
+        else:
+            # New user - all zeros
+            row = {col: 0 for col in self.columns}
+
+        row['by'] = data['by']
+        row['title'] = data['title']
+        row['url'] = data['url']
+        row['time'] = data['time']
+        return row
 
     def predict(self, input_data: dict) -> float:
-        processed_data = self.preprocessing_fn(input_data)
+        features_vec = self.preprocess_input(input_data)
+        data = utils.process_row(features_vec)
+        features_num = torch.tensor(data['features_num'], dtype=torch.float32)
+        # Load title embeddings (precomputed)
+        title_embeddings = torch.tensor(data['embedding'], dtype=torch.float32)
+
+        # Load categorical indices
+        domain_indices = torch.tensor(data['domain_idx'], dtype=torch.long)
+        tld_indices = torch.tensor(data['tld_idx'], dtype=torch.long)
+        user_indices = torch.tensor(data['user_idx'], dtype=torch.long)
+
         #May need to modify if model is not preprocessed
         with torch.no_grad():
-            prediction = 10 ** self.model(*processed_data) - 1
+            prediction = 10 ** self.model(features_num, title_embeddings, domain_indices, tld_indices, user_indices) - 1
 
         return prediction.item()
 
 def get_predictor(model_name: str):
     match model_name:
         case "full_model":
-            model = load_full_model("big_model/models/20250612_190305/best_model_1.pth")
-            return Predictor(model, get_full_model_preprocessor())
+            model = load_full_model("models/20250612_234603/best_model_3.pth")
+            get_full_model_preprocessor()
+            return Predictor(model)
         case _:
             raise ValueError(f"Model {model_name} not found")

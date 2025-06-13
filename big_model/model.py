@@ -36,7 +36,7 @@ class FullModel(nn.Module):
         tld_emb = self.tld_embedding(tld_idx)
         user_emb = self.user_embedding(user_idx)
 
-        full_input = torch.cat([features_num, title_emb, domain_emb, tld_emb, user_emb], dim=1)
+        full_input = torch.cat([features_num, title_emb, domain_emb, tld_emb, user_emb], dim=-1)
 
         x = self.linear1(full_input)
         x = self.relu1(x)

@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+import big_model.utils
 import utils
 from tqdm import tqdm
 import multiprocessing as mp
@@ -12,26 +13,15 @@ import tldextract
 
 UNK_TOKEN = '<unk>'
 
-global_embedding_matrix = None
-global_w2i = None
-global_domain_vocab = None
-global_tld_vocab = None
-global_user_vocab = None
 
 def init_worker(embedding_matrix, w2i_dict, Tmin, Tmax, domain_vocab, tld_vocab, user_vocab):
-    global global_embedding_matrix
-    global global_w2i
-    global global_domain_vocab
-    global global_tld_vocab
-    global global_user_vocab
-
-    global_embedding_matrix = torch.as_tensor(embedding_matrix).clone().detach()
-    global_w2i = w2i_dict
+    big_model.utils.global_embedding_matrix = torch.as_tensor(embedding_matrix).clone().detach()
+    big_model.utils.global_w2i = w2i_dict
     utils.global_Tmin = Tmin
     utils.global_Tmax = Tmax
-    global_domain_vocab = domain_vocab
-    global_tld_vocab = tld_vocab
-    global_user_vocab = user_vocab
+    utils.global_domain_vocab = domain_vocab
+    utils.global_tld_vocab = tld_vocab
+    utils.global_user_vocab = user_vocab
 
 
 
@@ -47,52 +37,6 @@ def build_vocab(values, min_freq=1, topk=None):
     return vocab
 
 
-def normalize_url(url):
-    if url is None or not str(url).strip():
-        return 'http://empty'
-    url = str(url).strip()
-    if not url.startswith(('http://', 'https://')):
-        url = 'http://' + url
-    return url
-
-def tokenize_title(title_text):
-    tokens = title_text.lower().split()
-    token_indices = [global_w2i.get(token, 0) for token in tokens]
-    return token_indices
-
-def embed_title(token_indices):
-    if len(token_indices) == 0:
-        return torch.zeros(global_embedding_matrix.shape[1])
-    token_indices = torch.tensor(token_indices, dtype=torch.long)
-    embedded = global_embedding_matrix[token_indices]
-    avg_embedding = embedded.mean(dim=0)
-    return avg_embedding.numpy()
-
-def process_row(row):
-
-    feats = utils.extract_features(row)
-    url = normalize_url(row['url'])
-    domain = tldextract.extract(url).domain or ''
-    tld = tldextract.extract(url).suffix or ''
-    user = row['by'] or ''
-
-    domain_idx = global_domain_vocab.get(domain, 0)
-    tld_idx = global_tld_vocab.get(tld, 0)
-    user_idx = global_user_vocab.get(user, 0)
-
-    tokens = tokenize_title(row['title'])
-    emb = embed_title(tokens)
-    target = np.clip(row['score'], 0, None)
-
-    return {
-        "features_num": feats,
-        "embedding": emb,
-        "domain_idx": domain_idx,
-        "tld_idx": tld_idx,
-        "user_idx": user_idx,
-        "target": target
-    }
-
 def precompute_parallel(df, embedding_matrix, w2i_dict, domain_vocab, tld_vocab, user_vocab,
                          Tmin=None, Tmax=None, ref_time=None, compute_delta_t=False, num_workers=None):
     df = df.reset_index(drop=True)
@@ -106,8 +50,8 @@ def precompute_parallel(df, embedding_matrix, w2i_dict, domain_vocab, tld_vocab,
 
     with mp.Pool(processes=num_workers, initializer=init_worker,
                  initargs=(embedding_matrix, w2i_dict, Tmin, Tmax, domain_vocab, tld_vocab, user_vocab)) as pool:
-        results = list(tqdm(pool.imap(process_row, df.to_dict(orient='records')),
-                             total=len(df), desc="Precomputing"))
+        results = list(tqdm(pool.imap(utils.process_row, df.to_dict(orient='records')),
+                            total=len(df), desc="Precomputing"))
 
     all_features_num = np.stack([r['features_num'] for r in results]).astype(np.float32)
     all_embeddings = np.stack([r['embedding'] for r in results]).astype(np.float32)
@@ -121,7 +65,6 @@ def precompute_parallel(df, embedding_matrix, w2i_dict, domain_vocab, tld_vocab,
     
 if __name__ == '__main__':
     EMBEDDING_FILE = "skipgram_models/silvery200.pt"
-    TRAINING_VOCAB_PATH = "data/train_vocab.json"
     FILEPATH = "data/posts.parquet"
     OUTPUT_DIR = "data"
     NUM_WORKERS = 20
@@ -142,8 +85,8 @@ if __name__ == '__main__':
     Tmin = train_df['time'].min()
     Tmax = train_df['time'].max()
 
-    domains = [tldextract.extract(normalize_url(url)).domain or '' for url in train_df['url']]
-    tlds = [tldextract.extract(normalize_url(url)).suffix or '' for url in train_df['url']]
+    domains = [tldextract.extract(utils.normalize_url(url)).domain or '' for url in train_df['url']]
+    tlds = [tldextract.extract(utils.normalize_url(url)).suffix or '' for url in train_df['url']]
     users = train_df['by'].fillna('')
 
     domain_vocab = build_vocab(domains)
@@ -157,7 +100,7 @@ if __name__ == '__main__':
         "user_vocab": user_vocab
     }
 
-    with open(TRAINING_VOCAB_PATH, "w") as f:
+    with open(utils.TRAINING_VOCAB_PATH, "w") as f:
         json.dump(all_vocabs, f)
 
     train_features_num, train_embeddings, train_domain_idx, train_tld_idx, train_user_idx, train_targets, train_delta_t = precompute_parallel(
